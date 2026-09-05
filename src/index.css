@@ -1,0 +1,1053 @@
+/* ── Global reset & tokens ────────────────────────────────────────────────── */
+
+:root {
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  color: #132238;
+  background: #f1f5f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ── Time-of-day background gradients ────────────────────────────────────── */
+/* The <body> data-period attribute is set by App.tsx's useEffect.            */
+/* `transition` makes the gradient shift slowly when the period changes.      */
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  transition: background 2s ease;
+
+  /* default / afternoon — crisp sky blue top-left, warm gold bottom-right */
+  background:
+    radial-gradient(circle at 10% 0%, rgba(100, 162, 232, 0.28), transparent 44%),
+    radial-gradient(circle at 90% 100%, rgba(248, 178, 95, 0.22), transparent 36%),
+    #eef3f8;
+}
+
+/* morning — golden sunrise top-left, soft sky blue bottom-right, warm base */
+body[data-period="morning"] {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(255, 195, 100, 0.34), transparent 46%),
+    radial-gradient(circle at 90% 100%, rgba(135, 192, 248, 0.26), transparent 38%),
+    #f2ede5;
+}
+
+/* afternoon — same as default */
+body[data-period="afternoon"] {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(100, 162, 232, 0.28), transparent 44%),
+    radial-gradient(circle at 90% 100%, rgba(248, 178, 95, 0.22), transparent 36%),
+    #eef3f8;
+}
+
+/* evening — indigo dusk top-left, amber-coral glow bottom-right, warm violet base */
+body[data-period="evening"] {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(125, 90, 210, 0.27), transparent 46%),
+    radial-gradient(circle at 90% 100%, rgba(238, 128, 68, 0.30), transparent 38%),
+    #eae8f4;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+/* ── Layout shell ─────────────────────────────────────────────────────────── */
+
+.app-shell {
+  min-height: 100vh;
+  padding: clamp(0.4rem, 1.2vw, 1.25rem);
+}
+
+/* ── Header (lives inside the sidebar column, not full-width) ─────────────── */
+/* Stacks vertically: logo → greeting → date.  Each child uses nowrap +       */
+/* ellipsis so the sidebar width never shifts when text length varies.         */
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1b3a5e;
+}
+
+.app-greeting {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3d5a7e;
+  /* Single line + ellipsis keeps the header block height constant so nothing
+     below it shifts when the greeting text is longer than the sidebar width. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-date {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #344760;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  margin: 0;
+}
+
+/* Two rows: practice material (Daily Practice, Browse) above a subtle divider,
+   reference tools (Chords, Scales) below. */
+.tab-bar {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tab-bar .segmented {
+  display: flex;
+  width: 100%;
+}
+
+.tab-bar .segment {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  padding: 0.38rem 0.45rem;
+}
+
+.tab-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #cfdcea 18%, #cfdcea 82%, transparent);
+}
+
+/* ── Two-column layout: sidebar | PDF ─────────────────────────────────────── */
+/* Column 1: fixed-width sidebar, fluid between 190 px and 260 px.            */
+/* Column 2: takes all remaining space; minmax(0,1fr) sets min-width to 0     */
+/* so the PDF card never bleeds into the sidebar (see .pdf-card comment).     */
+
+.pdf-layout {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: clamp(190px, 18vw, 260px) minmax(0, 1fr);
+  /* column-gap: fixed minimum so sidebar and PDF always have visible breathing
+     room regardless of viewport width.
+     row-gap: used only when the layout collapses to a single column (≤980 px). */
+  column-gap: clamp(1.5rem, 3vw, 2.5rem);
+  row-gap: clamp(0.4rem, 0.8vw, 1rem);
+  align-items: start;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+/* Single-column grid that stacks all sidebar items with a consistent gap.    */
+
+.sidebar-stack {
+  display: grid;
+  gap: clamp(0.4rem, 0.6vw, 0.8rem);
+  align-content: start;
+  /* Match the app-shell left padding so cards have equal breathing room
+     on both sides of the sidebar column. */
+  padding-right: clamp(0.4rem, 1.2vw, 1.25rem);
+}
+
+/* ── Cards (shared base) ──────────────────────────────────────────────────── */
+
+.card {
+  border-radius: 12px;
+  border: 1px solid #d6e2ee;
+  background: #fbfdff;
+  box-shadow: 0 12px 36px -28px rgba(10, 27, 54, 0.5);
+  padding: clamp(0.5rem, 0.9vw, 1rem);
+}
+
+.section-heading {
+  margin: 0 0 0.55rem;
+  font-weight: 700;
+}
+
+/* Grid layout for generic control cards (Browse, Metronome).                 */
+/* Overridden to flex by .daily-controls-card so the pager pins to bottom.    */
+.controls-card {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.field-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.field-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.menu-select {
+  width: 100%;
+  border: 1px solid #9db2ce;
+  border-radius: 0.65rem;
+  background: #f7fbff;
+  color: #1f3553;
+  padding: 0.5rem 0.6rem;
+}
+
+.pager-row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.menu-summary {
+  font-size: 0.9rem;
+  color: #405572;
+}
+
+/* ── Daily Practice card ──────────────────────────────────────────────────── */
+
+.daily-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  /* Clip any text that overflows the flex-allocated height so it can never
+     push the Prev/Next row downward. The card has a fixed height, so this
+     hides overflow rather than letting it escape. */
+  overflow: hidden;
+}
+
+/* Allow book name and section title to wrap naturally — the fixed card height
+   already pins the Prev/Next buttons at the bottom regardless of line count.
+   min-width:0 prevents flex children from inflating the sidebar column width. */
+.daily-info > * {
+  min-width: 0;
+}
+
+/* ── Segmented control ────────────────────────────────────────────────────── */
+
+.segmented {
+  display: inline-flex;
+  background: #ebeff4;
+  padding: 0.2rem;
+  border-radius: 0.75rem;
+  gap: 0.2rem;
+}
+
+.segment {
+  border: 0;
+  background: transparent;
+  padding: 0.42rem 0.72rem;
+  border-radius: 0.55rem;
+  cursor: pointer;
+}
+
+.segment.active {
+  background: #1b5c98;
+  color: #fff;
+}
+
+.viewer-book {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #4a6080;
+  font-weight: 700;
+}
+
+/* Fixed-height flex card so Prev/Next are always pinned to the bottom.       */
+/* Overrides .controls-card's display:grid with display:flex + flex-direction. */
+.daily-controls-card {
+  background: linear-gradient(135deg, #fef4de 0%, #eaf4ff 100%);
+  /* override .controls-card grid — use flex so pager pins to bottom */
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 11rem;
+}
+
+/* let the info block grow to fill the space between counter and pager */
+.daily-controls-card .daily-info {
+  flex: 1;
+  min-height: 0;
+}
+
+.daily-counter {
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  font-weight: 800;
+  color: #1b3a5e;
+  line-height: 1;
+}
+
+.daily-counter span {
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  font-weight: 600;
+  color: #6b8aaa;
+}
+
+.daily-section-title {
+  font-size: clamp(0.85rem, 1.2vw, 1.05rem);
+  font-weight: 700;
+  color: #1f3553;
+  margin: 0;
+}
+
+/* ── PDF column ───────────────────────────────────────────────────────────── */
+
+/* overflow:hidden is load-bearing here: it forces the browser to resolve
+   min-width:auto as 0 for this grid item (per CSS Grid spec), which lets the
+   minmax(0,1fr) track actually constrain the card width so the canvas can't
+   bleed into the sidebar column. */
+.pdf-card {
+  padding: clamp(0.3rem, 0.6vw, 0.8rem);
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Inner wrapper clips the canvas and centres it; position:relative is the
+   containing block for any absolutely-positioned overlays (note marks, etc.). */
+.pdf-canvas-wrap {
+  width: 100%;
+  background: #fff;
+  border-radius: 0.65rem;
+  border: 1px solid #c9d8e8;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.pdf-canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── PDF overlay elements (note markers, playback bar) ────────────────────── */
+
+.pdf-note-overlay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  pointer-events: none;
+}
+
+.pdf-root-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  width: 14px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: rgba(255, 66, 66, 0.88);
+  box-shadow: 0 0 0 4px rgba(255, 66, 66, 0.2);
+}
+
+.pdf-root-mark-tab {
+  background: rgba(0, 157, 255, 0.88);
+  box-shadow: 0 0 0 4px rgba(0, 157, 255, 0.2);
+}
+
+.pdf-play-bar {
+  position: absolute;
+  transform: translateX(-50%);
+  width: 4px;
+  border-radius: 4px;
+  background: rgba(255, 132, 0, 0.95);
+  box-shadow: 0 0 0 4px rgba(255, 132, 0, 0.2);
+}
+
+.pdf-play-bar::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 132, 0, 0.98);
+}
+
+.pdf-status {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #3b516e;
+}
+
+.pdf-status.error {
+  color: #99291f;
+}
+
+/* ── Metronome / transport card ───────────────────────────────────────────── */
+
+/* Shared card-level label used by Metronome and Practice Timer cards. */
+.card-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #7a96b4;
+  margin-bottom: 0.1rem;
+}
+
+/* Large monospace-spaced clock display.  tabular-nums prevents the layout
+   from shifting as individual digits tick up. */
+.timer-display {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 800;
+  color: #1b3a5e;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.controls-grid {
+  display: grid;
+  gap: clamp(0.4rem, 0.7vh, 0.8rem);
+}
+
+.tempo-slider {
+  width: 100%;
+}
+
+.audio-status {
+  margin-top: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #344c6a;
+}
+
+.audio-status.loading {
+  color: #9a6200;
+}
+
+.audio-status.ready {
+  color: #0a6d3b;
+}
+
+.audio-status.failed {
+  color: #9b2b2b;
+}
+
+.transport-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 0.65rem;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #dc5f2c 0%, #c23f1d 100%);
+  font-weight: 700;
+}
+
+.loop-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.progress-label {
+  font-weight: 600;
+  color: #344860;
+}
+
+/* ── Chord chart panel ────────────────────────────────────────────────────── */
+
+.chords-panel {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.8rem, 1.4vw, 1.4rem);
+  padding: clamp(0.9rem, 1.6vw, 1.6rem);
+  min-width: 0;
+}
+
+.chords-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.chords-title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: 800;
+  color: #1b3a5e;
+}
+
+.chords-key {
+  font-weight: 600;
+  color: #4a6080;
+}
+
+.chords-description {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #405572;
+  max-width: 60ch;
+}
+
+/* Roman numeral strip: chips joined by arrows, wraps on narrow screens */
+.numeral-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.numeral-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.numeral-arrow {
+  color: #7a96b4;
+  font-weight: 700;
+}
+
+.numeral-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.6rem;
+  background: #ebf2fa;
+  border: 1px solid #cfdeed;
+  font-weight: 800;
+  color: #1b5c98;
+  line-height: 1.1;
+}
+
+.numeral-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4a6080;
+}
+
+/* Diagram grid — uniform columns so cells stay the same size even when the
+   last row isn't full (flex-grow would blow up a partial second row). */
+.chords-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 200px));
+  justify-content: start;
+  gap: clamp(0.6rem, 1.2vw, 1.2rem);
+}
+
+.chord-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: clamp(0.5rem, 0.9vw, 0.9rem);
+  border-radius: 0.8rem;
+  border: 1px solid #d6e2ee;
+  background: #fff;
+}
+
+.chord-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1b3a5e;
+}
+
+.chord-diagram-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.cd-fret-label {
+  font-size: 11px;
+  font-weight: 700;
+  fill: #4a6080;
+}
+
+.cd-mute {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #8296ad;
+}
+
+.cd-finger {
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: #fff;
+}
+
+.label-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.label-toggle-caption {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4a6080;
+}
+
+.label-toggle-row .segment {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.65rem;
+}
+
+/* ── Per-chord voicing / quality cyclers ─────────────────────────────────── */
+
+.scale-chord-cell {
+  gap: 0.25rem;
+}
+
+.scale-chord-roman {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #1b5c98;
+  text-transform: none;
+}
+
+.cycler-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.cycler-button {
+  border: 1px solid #cfdcea;
+  background: #f4f8fc;
+  color: #1b5c98;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+}
+
+.cycler-button:hover:not(:disabled) {
+  background: #e3eef9;
+}
+
+.cycler-button:disabled {
+  color: #c3d0de;
+  cursor: default;
+}
+
+.cycler-caption {
+  flex: 1;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #5b7695;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swap-button {
+  margin-left: auto;
+  border: 1px solid #1b5c98;
+  border-radius: 0.6rem;
+  background: #eef5fc;
+  color: #1b5c98;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.swap-button:hover {
+  background: #dcebf9;
+}
+
+/* ── Fretboard (Scale Explorer) ───────────────────────────────────────────── */
+
+.fretboard-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #d6e2ee;
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.4rem;
+}
+
+.fretboard-svg {
+  display: block;
+  min-width: 810px;
+  width: 100%;
+  height: auto;
+}
+
+.fb-note-label {
+  font-size: 7px;
+  font-weight: 700;
+  fill: #fff;
+}
+
+.fb-bracket-label {
+  font-size: 9px;
+  font-weight: 800;
+  fill: #4a6080;
+}
+
+.fb-fret-number {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #7a96b4;
+}
+
+.chords-legend {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b8aaa;
+}
+
+.cd-interval {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #4a6080;
+}
+
+.cd-interval.root {
+  fill: #c23f1d;
+}
+
+.chord-voicing-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b8aaa;
+  text-align: center;
+  line-height: 1.25;
+  /* Reserve two lines: shape names run 9-28 characters, so a one-line label
+     would otherwise make the card shorter than a two-line one. */
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Grey out disabled segments (Today button when already on today's chart) */
+.segment:disabled {
+  color: #9db2ce;
+  cursor: default;
+}
+
+/* ── Standalone chords app (single-column layout, no sidebar) ─────────────── */
+
+.chords-app {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.6rem, 1.2vw, 1rem);
+  padding: clamp(0.8rem, 2vw, 1.6rem);
+}
+
+.chords-app-header h1 {
+  font-size: 1.5rem;
+}
+
+.chords-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+
+.chords-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 200px;
+}
+
+.chords-picker-buttons {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 280px;
+}
+
+/* ── Sidebar app icon ─────────────────────────────────────────────────────── */
+/* Sits at the bottom of the sidebar stack; auto-resizes to the column width. */
+
+.sidebar-icon {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 22%;  /* matches typical iOS-style icon rounding */
+}
+
+/* ── Responsive breakpoints ───────────────────────────────────────────────── */
+
+/* Below ~980 px collapse to a single column (sidebar on top, PDF below). */
+@media (max-width: 980px) {
+  .pdf-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Below 600 px hide the greeting to save vertical space in the sidebar. */
+@media (max-width: 600px) {
+  .app-greeting {
+    display: none;
+  }
+}
+
+/* ── Arpeggio diagrams ────────────────────────────────────────────────────── */
+
+.arp-diagram-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.arp-note-label {
+  font-size: 8px;
+  font-weight: 700;
+  fill: #fff;
+}
+
+.arp-finger-label {
+  font-size: 8px;
+  font-weight: 800;
+  fill: #7a96b4;
+}
+
+.arp-open-label {
+  font-size: 7px;
+  font-weight: 700;
+  fill: #1b5c98;
+}
+
+.arp-open-label.root {
+  fill: #c23f1d;
+}
+
+/* View switcher inside the sidebar Scale Explorer card */
+.scale-view-switch {
+  display: flex;
+  width: 100%;
+}
+
+.scale-view-switch .segment {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.3rem;
+}
+
+/* Arpeggio boxes carry more information than chord grips, so give them room */
+.arp-cell {
+  min-width: 170px;
+}
+
+.chords-grid:has(.arp-cell) {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 230px));
+}
+
+/* Scale-degree chips in the arpeggio panel */
+.degree-strip {
+  flex-wrap: wrap;
+}
+
+.degree-strip .segment {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.degree-chip-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* ── Riffs / tablature ───────────────────────────────────────────────────── */
+
+.tab-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #d6e2ee;
+  border-radius: 0.8rem;
+  padding: 0.5rem 0.4rem;
+}
+
+.tab-staff-svg {
+  display: block;
+  min-width: 720px;
+  width: 100%;
+  height: auto;
+}
+
+.tab-fret {
+  font-size: 9px;
+  font-weight: 800;
+  fill: #1b3a5e;
+}
+
+.tab-fret.root {
+  fill: #c23f1d;
+}
+
+.tab-string-label {
+  font-size: 7.5px;
+  font-weight: 700;
+  fill: #90a6bd;
+}
+
+.tab-artic {
+  font-size: 7.5px;
+  font-weight: 800;
+  fill: #1b5c98;
+}
+
+.tab-artic.bend {
+  fill: #c23f1d;
+}
+
+.tab-key-glyph {
+  vertical-align: -2px;
+  margin-right: 0.15rem;
+}
+
+.riff-transport {
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.riff-tempo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4a6080;
+  min-width: 180px;
+}
+
+.riff-new {
+  margin-left: auto;
+}
+
+.tab-key-item {
+  margin-right: 0.9rem;
+  white-space: nowrap;
+}
+
+/* ── Playback controls ───────────────────────────────────────────────────── */
+
+.play-button {
+  margin-left: auto;
+  border: 0;
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, #dc5f2c 0%, #c23f1d 100%);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.36rem 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.play-button:hover {
+  filter: brightness(1.06);
+}
+
+/* A swap button sitting beside a play button should not also push right */
+.play-button + .swap-button {
+  margin-left: 0.5rem;
+}
+
+/* The chord name doubles as a play trigger */
+.chord-name-play {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.chord-play-icon {
+  font-size: 0.62rem;
+  color: #c23f1d;
+  opacity: 0.55;
+}
+
+.chord-name-play:hover .chord-play-icon {
+  opacity: 1;
+}
+
+/* The chord currently sounding in a "play all" pass */
+.chord-cell.sounding {
+  border-color: #dc5f2c;
+  box-shadow: 0 0 0 2px rgba(220, 95, 44, 0.25);
+}
+
+/* ── Blink whatever is currently sounding ────────────────────────────────── */
+
+@keyframes note-pulse {
+  0%   { opacity: 1;    transform: scale(1); }
+  45%  { opacity: 0.35; transform: scale(1.35); }
+  100% { opacity: 1;    transform: scale(1); }
+}
+
+/* SVG notes on the fretboard and arpeggio neck */
+.note-sounding {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: note-pulse 0.28s ease-in-out;
+}
+
+.note-sounding circle {
+  stroke: #dc5f2c;
+  stroke-width: 2.5;
+}
+
+@keyframes chord-pulse {
+  0%   { box-shadow: 0 0 0 2px rgba(220, 95, 44, 0.25); }
+  50%  { box-shadow: 0 0 0 7px rgba(220, 95, 44, 0.18); }
+  100% { box-shadow: 0 0 0 2px rgba(220, 95, 44, 0.25); }
+}
+
+.chord-cell.sounding {
+  border-color: #dc5f2c;
+  animation: chord-pulse 0.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-sounding,
+  .chord-cell.sounding {
+    animation: none;
+  }
+}
