@@ -307,7 +307,7 @@ export const SCALE_MINOR_PENT_BOXES_A: ExerciseDefinition = {
     {
       positionId: "pos2",
       label: "Position 2 (Box 2)",
-      fretSpan: { low: 8, high: 10 },
+      fretSpan: { low: 7, high: 10 },
       asc: [
         { string: 6, fret: 8 }, { string: 6, fret: 10 },
         { string: 5, fret: 7 }, { string: 5, fret: 10 },
@@ -320,7 +320,7 @@ export const SCALE_MINOR_PENT_BOXES_A: ExerciseDefinition = {
     {
       positionId: "pos3",
       label: "Position 3 (Box 3)",
-      fretSpan: { low: 10, high: 13 },
+      fretSpan: { low: 9, high: 13 },
       asc: [
         { string: 6, fret: 10 }, { string: 6, fret: 12 },
         { string: 5, fret: 10 }, { string: 5, fret: 12 },
@@ -346,7 +346,7 @@ export const SCALE_MINOR_PENT_BOXES_A: ExerciseDefinition = {
     {
       positionId: "pos5",
       label: "Position 5 (Box 5)",
-      fretSpan: { low: 3, high: 5 },
+      fretSpan: { low: 2, high: 5 },
       asc: [
         { string: 6, fret: 3 }, { string: 6, fret: 5 },
         { string: 5, fret: 3 }, { string: 5, fret: 5 },

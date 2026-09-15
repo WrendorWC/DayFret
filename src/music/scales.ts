@@ -1,3 +1,4 @@
+import { OPEN_STRING_MIDI } from "./tuning";
 import {
   ChartKey,
   ChordQuality,
@@ -193,6 +194,95 @@ export const SCALES: ScaleDef[] = [
 // Open-string pitch classes, low E (index 0) to high E (index 5)
 const OPEN_STRING_PC_LOW_TO_HIGH = [4, 9, 2, 7, 11, 4];
 
+// A position box is a window of frets, and the window has to hold the whole
+// position: starting from the box's own tone on the low E string, every
+// consecutive note of the scale above it has to sit somewhere inside. A window
+// that leaves one out is not a position — the hand would have to jump over a
+// note halfway through the box.
+const MIN_BOX_FRETS = 4; // one finger per fret
+const MAX_BOX_FRETS = 8; // wider than this is a position shift, not a box
+
+// Every fret that plays a note of the scale, per string, low E first.
+function scaleFrets(pcs: Set<number>): number[][] {
+  return OPEN_STRING_PC_LOW_TO_HIGH.map((openPc) => {
+    const frets: number[] = [];
+    for (let fret = 0; fret <= FRET_COUNT; fret += 1) {
+      if (pcs.has((openPc + fret) % 12)) frets.push(fret);
+    }
+    return frets;
+  });
+}
+
+// The next note of the scale above a pitch.
+function nextScalePitch(midi: number, pcs: Set<number>): number {
+  let next = midi + 1;
+  while (!pcs.has(next % 12)) next += 1;
+  return next;
+}
+
+// The distinct pitches inside a fret window, and how many places they are
+// played in. More places than pitches means the window reaches past the shape
+// onto a string that already covers those notes.
+function windowPitches(
+  frets: number[][],
+  start: number,
+  end: number,
+): { pitches: number[]; spots: number } {
+  const pitches = new Set<number>();
+  let spots = 0;
+  frets.forEach((stringFrets, s) => {
+    for (const fret of stringFrets) {
+      if (fret < start || fret > end) continue;
+      pitches.add(OPEN_STRING_MIDI[s] + fret);
+      spots += 1;
+    }
+  });
+  return { pitches: [...pitches].sort((a, b) => a - b), spots };
+}
+
+// The window for the box anchored on `anchorFret` of the low E string: the
+// narrowest one that starts on that note and then runs through the scale
+// unbroken.
+//
+// Four frets starting on the anchor gives the familiar minor pentatonic box 1 —
+// in A that is frets 5–8, root under the index finger. The same window in A
+// major pentatonic would drop the C# on the A string and the F# on the D
+// string, so that box comes out as frets 4–7 instead: the root still sits at
+// the 5th fret, now played with the second finger. A few positions (minor
+// pentatonic box 3, frets 9–13) genuinely need a stretch, and get a wider
+// window rather than losing the note that does not fit.
+function boxWindow(
+  frets: number[][],
+  pcs: Set<number>,
+  anchorFret: number,
+): { start: number; end: number } {
+  const anchorPitch = OPEN_STRING_MIDI[0] + anchorFret;
+
+  for (let width = MIN_BOX_FRETS; width <= MAX_BOX_FRETS; width += 1) {
+    let best: { start: number; end: number; extra: number } | null = null;
+
+    // Highest start first, so the box sits as close to its own tone as it can.
+    for (let start = anchorFret; start >= Math.max(0, anchorFret - width + 1); start -= 1) {
+      const end = start + width - 1;
+      if (end > FRET_COUNT) continue;
+
+      const { pitches, spots } = windowPitches(frets, start, end);
+      if (pitches[0] !== anchorPitch) continue; // a box starts on its own tone
+      const unbroken = pitches.every(
+        (p, i) => i === 0 || p === nextScalePitch(pitches[i - 1], pcs),
+      );
+      if (!unbroken) continue;
+
+      const extra = spots - pitches.length;
+      if (best === null || extra < best.extra) best = { start, end, extra };
+    }
+
+    if (best) return { start: best.start, end: best.end };
+  }
+
+  return { start: anchorFret, end: Math.min(FRET_COUNT, anchorFret + MIN_BOX_FRETS - 1) };
+}
+
 export function buildScaleDiagram(scale: ScaleDef, key: ChartKey): ScaleDiagram {
   const byPc = new Map<number, ScaleTone>();
   for (const tone of scale.tones) byPc.set((key.pitchClass + tone.semis) % 12, tone);
@@ -213,19 +303,18 @@ export function buildScaleDiagram(scale: ScaleDef, key: ChartKey): ScaleDiagram 
     }
   }
 
-  // One position box per scale tone, anchored where that tone sits on the low E
-  // string (this is exactly the classic 5-box system for pentatonics). Each box
-  // also repeats an octave up when it still fits on the neck.
-  //
-  // Four frets, one finger per fret. A fifth fret would reach notes that belong
-  // to the next position — in A minor pentatonic it pulls in the E at the 9th
-  // fret of the G string, which is the same pitch as the E already sitting under
-  // the index finger on the B string, so you would never actually stretch for it.
+  // One position box per scale tone, numbered by where that tone sits on the
+  // low E string (this is exactly the classic 5-box system for pentatonics).
+  // Each box also repeats an octave up when it still fits on the neck.
+  const pcs = new Set(byPc.keys());
+  const scaleFretsByString = scaleFrets(pcs);
   const boxes: ScaleBox[] = [];
   scale.tones.forEach((tone, idx) => {
     const base = ((key.pitchClass + tone.semis) % 12 - OPEN_STRING_PC_LOW_TO_HIGH[0] + 12) % 12;
-    for (const start of [base, base + 12]) {
-      if (start + 3 <= FRET_COUNT) boxes.push({ number: idx + 1, start, end: start + 3 });
+    const { start, end } = boxWindow(scaleFretsByString, pcs, base);
+    const width = end - start;
+    for (const low of [start, start + 12]) {
+      if (low + width <= FRET_COUNT) boxes.push({ number: idx + 1, start: low, end: low + width });
     }
   });
   boxes.sort((a, b) => a.start - b.start || a.number - b.number);
