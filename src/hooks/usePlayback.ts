@@ -50,7 +50,7 @@ export function usePlayback(bpm: number) {
       setActiveIndex(0);
 
       timerRef.current = window.setInterval(() => {
-        const elapsed = synth.currentTime - startTime;
+        const elapsed = synth.heardTime - startTime;
         if (elapsed > totalSeconds) {
           cancel();
           setPlaying(false);
@@ -111,7 +111,7 @@ export function usePlayback(bpm: number) {
 
       const total = chords.length * gap;
       timerRef.current = window.setInterval(() => {
-        const elapsed = synth.currentTime - start;
+        const elapsed = synth.heardTime - start;
         if (elapsed > total) {
           cancel();
           setPlaying(false);

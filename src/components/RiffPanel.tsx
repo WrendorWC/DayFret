@@ -129,7 +129,7 @@ export function RiffPanel({
     const totalTicks = riff.events.reduce((s, e) => s + e.duration, 0);
 
     const tick = (): void => {
-      const now = synth.currentTime;
+      const now = synth.heardTime;
       if (now >= synth.endsAt) {
         stop();
         return;

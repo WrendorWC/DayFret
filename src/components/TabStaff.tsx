@@ -38,6 +38,11 @@ export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
   // stringIndex 0 is the low E, drawn on the bottom line
   const lineY = (stringIndex: number): number => staffTop + (5 - stringIndex) * STRING_GAP;
   const tickX = (tick: number): number => LEFT + tick * PX_PER_TICK;
+  // Everything that belongs to a note — the fret number, its stem, the slur to
+  // the next one — is drawn a few pixels right of the tick it falls on, so the
+  // playhead has to sit on the same offset or it runs permanently to the left
+  // of the note it is sounding. On sixteenths that gap is most of a note.
+  const NOTE_X = 3;
 
   const sounded = riff.events.filter((e) => !e.rest);
 
@@ -107,9 +112,9 @@ export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
       {/* Playhead */}
       {playheadTick !== null && (
         <line
-          x1={tickX(playheadTick)}
+          x1={tickX(playheadTick) + NOTE_X}
           y1={staffTop - 8}
-          x2={tickX(playheadTick)}
+          x2={tickX(playheadTick) + NOTE_X}
           y2={staffBottom + STEM_LEN}
           stroke="#dc5f2c"
           strokeWidth={2}

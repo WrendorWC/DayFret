@@ -443,8 +443,23 @@ export class RiffSynth {
     this.buffers.clear();
   }
 
+  // The clock to schedule against: notes are booked in this timeline.
   get currentTime(): number {
     return this.ctx?.currentTime ?? 0;
+  }
+
+  // The clock the playhead follows. A note scheduled for ctx.currentTime is not
+  // heard until it has been through the output buffer and the hardware, which
+  // is a few milliseconds on speakers and can be a fifth of a second over
+  // Bluetooth. Following the scheduling clock draws the line ahead of what the
+  // ear is hearing, and the denser the riff the more obvious that is, so
+  // anything that tracks the sound follows what is leaving the speakers now.
+  // Scheduling must not use this, or a laggy output would book notes in the
+  // past.
+  get heardTime(): number {
+    const ctx = this.ctx;
+    if (!ctx) return 0;
+    return ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0);
   }
 
   get endsAt(): number {
