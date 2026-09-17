@@ -9,6 +9,8 @@ import { buildScaleDiagram, FRET_COUNT, ScaleDef } from "./scales";
 export const TICKS_PER_QUARTER = 12;
 export const TICKS_PER_BAR = TICKS_PER_QUARTER * 4;
 
+const Q = TICKS_PER_QUARTER;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Technique =
@@ -29,7 +31,7 @@ export type RiffEvent = {
   start: number; // ticks from the start of the riff
   duration: number; // ticks
   rest: boolean;
-  notes: RiffNote[]; // more than one = double stop
+  notes: RiffNote[]; // a riff is a single-note line, so always exactly one
   technique?: Technique;
   bendAmount?: "half" | "full"; // semitones bent up: 1 or 2
 };
@@ -62,67 +64,77 @@ export type ComplexityLevel = {
   repeatBarChance: number; // odds bar two simply repeats bar one
   chromaticChance: number; // passing notes from outside the scale
   techniqueScale: number; // multiplier on bends, slurs and slides
-  stringSkipChance: number; // double stops across a skipped string
+  stringSkipChance: number; // odds of taking a note on a further string than needed
   subdivide: number; // odds of splitting a beat further than the feel asks
   shiftChance: number; // odds of moving the hand when there is time to do so
+  handSpan: number; // frets under the hand: 4 is a finger each, more is a stretch
+  shiftGap: number; // ticks of room a position shift needs — less is more frantic
 };
 
 export const RIFF_COMPLEXITY: ComplexityLevel[] = [
   {
     level: 1,
     name: "Simple",
-    description: "One position, stepwise, and the second bar answers the first.",
+    description: "One position, mostly stepwise, and the second bar answers the first.",
     extraFrets: 0,
-    leapChance: 0.04,
+    leapChance: 0.14,
     maxLeap: 2,
-    repeatBarChance: 0.8,
+    repeatBarChance: 0.5,
     chromaticChance: 0,
-    techniqueScale: 0.6,
-    stringSkipChance: 0,
-    subdivide: 0,
-    shiftChance: 0,
+    techniqueScale: 0.9,
+    stringSkipChance: 0.08,
+    subdivide: 0.15,
+    shiftChance: 0.03,
+    handSpan: 4,
+    shiftGap: Q,
   },
   {
     level: 2,
     name: "Moderate",
-    description: "Still one position, but wider intervals and a freer second bar.",
-    extraFrets: 0,
-    leapChance: 0.12,
-    maxLeap: 2,
-    repeatBarChance: 0.45,
-    chromaticChance: 0,
-    techniqueScale: 1,
-    stringSkipChance: 0.1,
-    subdivide: 0.1,
+    description: "Leaves the box, leaps across strings, and answers rather than repeats.",
+    extraFrets: 4,
+    leapChance: 0.3,
+    maxLeap: 3,
+    repeatBarChance: 0.22,
+    chromaticChance: 0.05,
+    techniqueScale: 1.2,
+    stringSkipChance: 0.22,
+    subdivide: 0.35,
     shiftChance: 0.12,
+    handSpan: 4,
+    shiftGap: Q,
   },
   {
     level: 3,
     name: "Tricky",
-    description: "Shifts out of the box, skips strings, and repeats itself less.",
+    description: "Stretched fingerings, quick shifts, chromatic notes, hardly ever repeats.",
     extraFrets: 4,
-    leapChance: 0.3,
-    maxLeap: 3,
-    repeatBarChance: 0.2,
-    chromaticChance: 0.07,
-    techniqueScale: 1.3,
-    stringSkipChance: 0.28,
-    subdivide: 0.3,
-    shiftChance: 0.45,
+    leapChance: 0.48,
+    maxLeap: 4,
+    repeatBarChance: 0.08,
+    chromaticChance: 0.13,
+    techniqueScale: 1.4,
+    stringSkipChance: 0.3,
+    subdivide: 0.55,
+    shiftChance: 0.22,
+    handSpan: 5,
+    shiftGap: (Q * 2) / 3,
   },
   {
     level: 4,
     name: "Brutal",
-    description: "Ranges across positions, leaps, chromatic passing notes, few repeats.",
-    extraFrets: 8,
-    leapChance: 0.45,
-    maxLeap: 4,
-    repeatBarChance: 0.05,
-    chromaticChance: 0.16,
-    techniqueScale: 1.5,
-    stringSkipChance: 0.4,
-    subdivide: 0.5,
-    shiftChance: 0.7,
+    description: "The whole neck, wide leaps, shifts with no room, and no bar played twice.",
+    extraFrets: 6,
+    leapChance: 0.62,
+    maxLeap: 5,
+    repeatBarChance: 0,
+    chromaticChance: 0.22,
+    techniqueScale: 1.6,
+    stringSkipChance: 0.45,
+    subdivide: 0.8,
+    shiftChance: 0.35,
+    handSpan: 5,
+    shiftGap: Q / 2,
   },
 ];
 
@@ -134,7 +146,6 @@ export type RiffFeel = {
   // Rhythm cells, each a list of tick durations (negative = rest)
   cells: number[][];
   // 0-1 likelihoods for the decorations
-  doubleStopChance: number;
   bendChance: number;
   slurChance: number; // hammer-ons and pull-offs
   slideChance: number;
@@ -143,8 +154,6 @@ export type RiffFeel = {
   density: number; // 0-1, how often a cell subdivides
 };
 
-const Q = TICKS_PER_QUARTER;
-
 export const RIFF_FEELS: RiffFeel[] = [
   {
     id: "rock",
@@ -152,7 +161,6 @@ export const RIFF_FEELS: RiffFeel[] = [
     description: "Straight eighths on the low strings with the odd sixteenth kick.",
     swing: false,
     cells: [[Q], [Q / 2, Q / 2], [Q / 2, Q / 4, Q / 4], [Q / 4, Q / 4, Q / 2], [-Q / 2, Q / 2]],
-    doubleStopChance: 0.25,
     bendChance: 0.12,
     slurChance: 0.3,
     slideChance: 0.15,
@@ -162,10 +170,9 @@ export const RIFF_FEELS: RiffFeel[] = [
   {
     id: "blues",
     name: "Shuffle Blues",
-    description: "Triplet swing, bends on the money notes, double stops in fourths.",
+    description: "Triplet swing, with the bends landing on the money notes.",
     swing: true,
     cells: [[Q], [(Q * 2) / 3, Q / 3], [Q / 3, Q / 3, Q / 3], [-Q / 3, Q / 3, Q / 3]],
-    doubleStopChance: 0.28,
     bendChance: 0.42,
     slurChance: 0.4,
     slideChance: 0.2,
@@ -184,7 +191,6 @@ export const RIFF_FEELS: RiffFeel[] = [
       [-Q / 2, Q / 4, Q / 4],
       [Q / 2, -Q / 4, Q / 4],
     ],
-    doubleStopChance: 0.4,
     bendChance: 0.1,
     slurChance: 0.35,
     slideChance: 0.25,
@@ -197,7 +203,6 @@ export const RIFF_FEELS: RiffFeel[] = [
     description: "Palm-muted gallop figures anchored on the root.",
     swing: false,
     cells: [[Q / 2, Q / 4, Q / 4], [Q / 4, Q / 4, Q / 4, Q / 4], [Q / 2, Q / 2], [Q]],
-    doubleStopChance: 0.15,
     bendChance: 0.05,
     slurChance: 0.25,
     slideChance: 0.1,
@@ -210,7 +215,6 @@ export const RIFF_FEELS: RiffFeel[] = [
     description: "Longer notes, singing phrases, vibrato on the tail.",
     swing: false,
     cells: [[Q], [Q, Q], [(Q * 3) / 2, Q / 2], [Q / 2, Q / 2], [Q / 2, Q / 4, Q / 4]],
-    doubleStopChance: 0.2,
     bendChance: 0.3,
     slurChance: 0.45,
     slideChance: 0.3,
@@ -299,31 +303,6 @@ function bendFor(
   return pick(rng, candidates).semis === 2 ? "full" : "half";
 }
 
-// Consonant double stops only, on adjacent strings, within a hand span
-const CONSONANT = new Set([3, 4, 5, 7, 8, 9, 12]);
-
-function doubleStopFor(
-  note: PoolNote,
-  all: PoolNote[],
-  rng: () => number,
-  skipChance = 0,
-): PoolNote | null {
-  // Adjacent strings normally; at the harder settings the pair may straddle a
-  // skipped string, which is a good deal more awkward to play.
-  const maxGap = rng() < skipChance ? 2 : 1;
-  const partners = all.filter((p) => {
-    const span = Math.abs(p.stringIndex - note.stringIndex);
-    if (span < 1 || span > maxGap) return false;
-    if (Math.abs(p.fret - note.fret) > 3) return false;
-    const gap = Math.abs(p.midi - note.midi);
-    return CONSONANT.has(gap);
-  });
-  if (partners.length === 0) return null;
-  // Favour the higher note so the double stop sits on top
-  const above = partners.filter((p) => p.midi > note.midi);
-  return pick(rng, above.length > 0 ? above : partners);
-}
-
 // ── Generation ────────────────────────────────────────────────────────────────
 
 type Cell = { durations: number[] };
@@ -410,52 +389,103 @@ export function generateRiff(
     return { scale, key, boxNumber, startFret: lowFret, endFret: highFret, feel, bars, complexity, events: [] };
   }
 
-  // Bias the register: low feels start near the bottom of the box, high feels
-  // near the top, so a gallop and a blues lick don't sit in the same octave.
+  // The hand covers a fixed window of frets and stays put until there is room
+  // to move it. Without this the widened range at the harder settings simply
+  // scattered notes across it — 8 to 10 to 5 to 3 on one string, joined by
+  // pull-offs no hand could make. Difficulty should come from shifting
+  // position, not from stretches nobody can play. The hard settings do stretch
+  // the window to five frets, which is the reach a minor pentatonic box 3 asks
+  // for anyway, and no further.
+  const HAND_SPAN = hard.handSpan;
+  let handFret = Math.max(lowFret, Math.min(box.start, highFret - HAND_SPAN + 1));
+
   const span = byPitch.length;
-  const lowIdx = Math.floor(span * 0.15);
-  const highIdx = Math.floor(span * 0.55);
+
+  // The scale tones a hand parked at this fret can reach, as indices into
+  // byPitch. One position spans about two octaves across the six strings, and
+  // the whole point of a box is that you play through it by crossing strings,
+  // not by running up and down one of them. Keeping the line inside this range
+  // is what makes a riff stay in position.
+  const pitchRangeForHand = (hf: number): [number, number] => {
+    const inHand = byPitch
+      .map((n, i) =>
+        all.some((p) => p.midi === n.midi && p.fret >= hf && p.fret <= hf + HAND_SPAN - 1) ? i : -1,
+      )
+      .filter((i) => i >= 0);
+    return inHand.length === 0 ? [0, span - 1] : [inHand[0], inHand[inHand.length - 1]];
+  };
+
+  const [posLo, posHi] = pitchRangeForHand(handFret);
+
+  // Bias the register within the position: low feels start near the bottom of
+  // the box, high feels near the top, so a gallop and a blues lick don't sit in
+  // the same octave.
   const startIdx =
-    feel.stringBias === "low" ? lowIdx : feel.stringBias === "high" ? highIdx : Math.floor(span / 3);
+    feel.stringBias === "low"
+      ? Math.min(posLo + 1, posHi)
+      : feel.stringBias === "high"
+        ? Math.max(posHi - 3, posLo)
+        : Math.floor((posLo + posHi) / 2);
 
   // Root positions make the strongest landing points
   const rootIndices = byPitch
     .map((n, i) => (n.semis === 0 ? i : -1))
     .filter((i) => i >= 0);
-  const nearestRoot = (from: number): number =>
-    rootIndices.length === 0
+  const nearestRoot = (from: number): number => {
+    // The root the phrase lands on has to be one the hand can reach without
+    // leaving the position it has been playing in.
+    const inPosition = rootIndices.filter((i) => i >= posLo && i <= posHi);
+    const choices = inPosition.length > 0 ? inPosition : rootIndices;
+    return choices.length === 0
       ? from
-      : rootIndices.reduce((best, i) => (Math.abs(i - from) < Math.abs(best - from) ? i : best));
+      : choices.reduce((best, i) => (Math.abs(i - from) < Math.abs(best - from) ? i : best));
+  };
 
   // ── Pitch contour for one bar, as indices into byPitch ──
   const contourForBar = (noteCount: number, anchor: number): number[] => {
-    const shape = pick(rng, ["rise", "fall", "arch", "zigzag", "pedal"]);
+    // Every phrase is given somewhere to go and walks there. A line that hovers
+    // on three or four tones is one or two strings' worth of the box however it
+    // is fingered, and that is what makes a riff feel like it is stuck sliding
+    // along one string. Travelling through the position is the same thing as
+    // crossing the strings, because that is how a box is laid out: two or three
+    // notes on each string, one string after the next.
+    const range = Math.max(1, posHi - posLo);
+    const reach = Math.max(2, Math.round(range * (0.5 + rng() * 0.4)));
+    // Head for the roomier side of the position.
+    const away = anchor - posLo < posHi - anchor ? 1 : -1;
+    const far = Math.max(posLo, Math.min(posHi, anchor + away * reach));
+    const half = Math.max(posLo, Math.min(posHi, anchor + away * Math.round(reach / 2)));
+    // Where the phrase goes, in order: straight through the box, up and back,
+    // or out and half way home.
+    const shape = pick(rng, ["through", "through", "arch", "arch", "return"]);
+    const waypoints = shape === "through" ? [far] : shape === "arch" ? [far, anchor] : [far, half];
+
     const out: number[] = [];
     let idx = anchor;
+    let leg = 0;
+    // A leap is answered by a step, the way a line that sounds written does.
+    // Two leaps back to back in opposite directions — down a sixth, up an
+    // octave — is not harder to play than leap-then-step, it just sounds like
+    // the notes were shuffled.
+    let lastWasLeap: boolean = false;
     for (let i = 0; i < noteCount; i += 1) {
-      out.push(Math.max(0, Math.min(span - 1, idx)));
-      const bigStep =
-        rng() < hard.leapChance ? 2 + Math.floor(rng() * (hard.maxLeap - 1)) : 1;
-      switch (shape) {
-        case "rise":
-          idx += bigStep;
-          break;
-        case "fall":
-          idx -= bigStep;
-          break;
-        case "arch":
-          idx += i < noteCount / 2 ? bigStep : -bigStep;
-          break;
-        case "zigzag":
-          idx += i % 2 === 0 ? bigStep : -bigStep;
-          break;
-        case "pedal":
-          // Alternate between a fixed anchor and a neighbour a step or two away
-          idx = i % 2 === 0 ? anchor : anchor + 1 + Math.floor(rng() * 2);
-          break;
-      }
-      if (idx < 0) idx = Math.min(span - 1, anchor + 1);
-      if (idx > span - 1) idx = Math.max(0, anchor - 1);
+      out.push(Math.max(posLo, Math.min(posHi, idx)));
+      const target = waypoints[Math.min(leg, waypoints.length - 1)];
+      if (idx === target && leg < waypoints.length - 1) leg += 1;
+      const heading = Math.sign(waypoints[Math.min(leg, waypoints.length - 1)] - idx) || away;
+      const takeLeap: boolean = !lastWasLeap && rng() < hard.leapChance;
+      lastWasLeap = takeLeap;
+      const bigStep = takeLeap ? 2 + Math.floor(rng() * (hard.maxLeap - 1)) : 1;
+      // An ornament turns back for a single note without giving up the journey
+      // — the neighbour tones and repeated notes that make a line sound played
+      // rather than run.
+      const ornament = !takeLeap && rng() < 0.28;
+      idx += ornament ? -heading : heading * bigStep;
+      // Turn the line around at the edges of the position rather than pinning
+      // it there, so a phrase that runs out of box comes back down through it.
+      if (idx < posLo) idx = posLo + (posLo - idx);
+      if (idx > posHi) idx = posHi - (idx - posHi);
+      idx = Math.max(posLo, Math.min(posHi, idx));
     }
     return out;
   };
@@ -467,26 +497,48 @@ export function generateRiff(
   const motifContour = contourForBar(soundedCount, startIdx);
 
   const events: RiffEvent[] = [];
-  // The hand covers four frets and stays put until there is room to move it.
-  // Without this the widened range at the harder settings simply scattered
-  // notes across it — 8 to 10 to 5 to 3 on one string, joined by pull-offs no
-  // hand could make. Difficulty should come from shifting position, not from
-  // stretches nobody can play.
-  const HAND_SPAN = 4;
-  let handFret = Math.max(lowFret, Math.min(box.start, highFret - HAND_SPAN + 1));
 
   const reachable = (hf: number): PoolNote[] =>
     all.filter((n) => n.fret >= hf && n.fret <= hf + HAND_SPAN - 1);
 
   // Where this pitch falls under the hand, preferring the string nearest the
-  // one just played.
-  const placeInHand = (midi: number, hf: number, prev: number | null): PoolNote | null => {
+  // one just played — except when the setting calls for a skip, and the same
+  // pitch is available further across the neck. Taking the note on the far
+  // string instead of the easy one is the same line to the ear and a much
+  // harder one to pick, which is exactly what the string-skip dial is for.
+  const placeInHand = (
+    midi: number,
+    hf: number,
+    prev: number | null,
+    skip = false,
+    dir = 0,
+  ): PoolNote | null => {
     const opts = reachable(hf).filter((n) => n.midi === midi);
     if (opts.length === 0) return null;
     if (prev === null) return opts[0];
-    return opts.reduce((best, n) =>
-      Math.abs(n.stringIndex - prev) < Math.abs(best.stringIndex - prev) ? n : best,
-    );
+    const closer = (a: PoolNote, b: PoolNote) =>
+      Math.abs(a.stringIndex - prev) < Math.abs(b.stringIndex - prev);
+    if (skip) {
+      const far = opts.filter((n) => Math.abs(n.stringIndex - prev) >= 2);
+      if (far.length > 0) return far.reduce((best, n) => (closer(best, n) ? n : best));
+    }
+    // A position is played across the strings. Where the note is available both
+    // under the finger already down and on the string next door, take the
+    // neighbour — and take it on the side the line is heading. Staying put is
+    // what turns a box into two strings' worth of running up and down. Only a
+    // repeated pitch (dir 0) keeps the string it just sounded on.
+    if (dir !== 0) {
+      const middle = hf + (HAND_SPAN - 1) / 2;
+      const inPosition = (list: PoolNote[]) =>
+        list.reduce((best, n) =>
+          Math.abs(n.fret - middle) < Math.abs(best.fret - middle) ? n : best,
+        );
+      const heading = opts.filter((n) => Math.sign(n.stringIndex - prev) === dir);
+      if (heading.length > 0) return inPosition(heading);
+      const nextDoor = opts.filter((n) => Math.abs(n.stringIndex - prev) === 1);
+      if (nextDoor.length > 0) return inPosition(nextDoor);
+    }
+    return opts.reduce((best, n) => (closer(n, best) ? n : best));
   };
 
   // When the wanted pitch is out of reach and there is no time to shift, play
@@ -522,6 +574,15 @@ export function generateRiff(
   // answered by the clock rather than by whether a rest happened to occur —
   // a sixteenth rest is not time to cross the neck.
   let lastOnset: number | null = null;
+  // Notes played since the hand last moved, so a shift is followed by playing
+  // from the new position rather than by another shift.
+  const SETTLE = 4;
+  let sinceShift = SETTLE;
+  // The fret distance and direction of the last move, so the line can be kept
+  // from lunging one way and immediately lunging back.
+  let prevDelta: number | null = null;
+  let prevMidi: number | null = null;
+  let sinceSkip = 2;
 
   for (let bar = 0; bar < bars; bar += 1) {
     const isLastBar = bar === bars - 1;
@@ -537,7 +598,7 @@ export function generateRiff(
       } else if (variation < hard.repeatBarChance + (1 - hard.repeatBarChance) * 0.55) {
         // Answer the motif a scale step away
         const shift = rng() < 0.5 ? 1 : -1;
-        contour = contour.map((c) => Math.max(0, Math.min(span - 1, c + shift)));
+        contour = contour.map((c) => Math.max(posLo, Math.min(posHi, c + shift)));
       } else {
         // Same opening, new ending
         const tailFrom = Math.floor(contour.length / 2);
@@ -563,9 +624,25 @@ export function generateRiff(
       const idx = contour[Math.min(sounded, contour.length - 1)] ?? startIdx;
       const target = byPitch[idx];
 
-      // There is room to move the hand only if a beat or more has passed since
-      // the last note was struck — counting rests, but measured on the clock.
-      const roomToShift = lastOnset === null || tick - lastOnset >= Q;
+      // There is room to move the hand only if enough has passed since the last
+      // note was struck — counting rests, but measured on the clock. A beat is
+      // comfortable; the hard settings will jump on an eighth, which is what
+      // makes a shift feel frantic rather than merely wide.
+      const sinceLast = lastOnset === null ? Infinity : tick - lastOnset;
+      const roomToShift = sinceLast >= hard.shiftGap;
+      // Notes inside the hand's own window cost nothing to reach — that is just
+      // which finger takes them. What costs time is carrying the hand past that
+      // window, so the budget is on the move, not on the interval. A beat is a
+      // real position change and may cross the neck; an eighth carries the hand
+      // a few frets; a sixteenth does not move it at all. Without this the hand
+      // could move its full span and then take the note at the far end of the
+      // new window, which is what produced lines like 9 → 5 → 12 on one string.
+      // A beat is time for a position change, not for crossing the whole neck:
+      // a shift of about two positions is the most that still sounds like one
+      // line rather than two unrelated ones. Given a half note, go anywhere.
+      const moveBudget =
+        sinceLast >= Q * 2 ? FRET_COUNT : sinceLast >= Q ? 7 : sinceLast >= Q / 2 ? 3 : 0;
+      const travelBudget = HAND_SPAN - 1 + moveBudget;
       // Every position the hand could take and still reach this note
       const reachableHands = (midi: number): number[] => {
         const spots: number[] = [];
@@ -577,19 +654,50 @@ export function generateRiff(
         return spots;
       };
 
-      if (roomToShift && hard.shiftChance > 0 && rng() < hard.shiftChance) {
+      if (
+        roomToShift &&
+        sinceShift >= SETTLE &&
+        hard.shiftChance > 0 &&
+        rng() < hard.shiftChance
+      ) {
         // Move on purpose, not only when stranded. Waiting for a note to be
         // out of reach almost never happens — the contour stays under the
         // hand — so without this the harder settings never made you shift,
-        // which is most of what makes a slow line difficult.
-        const away = reachableHands(target.midi).filter((hf) => Math.abs(hf - handFret) >= 2);
-        if (away.length > 0) handFret = pick(rng, away);
+        // which is most of what makes a slow line difficult. But a player
+        // shifts and then plays from the new position: hopping on every note
+        // is not a hard riff, it is a scattered one, so the hand settles for a
+        // few notes after each move.
+        const away = reachableHands(target.midi).filter(
+          (hf) => Math.abs(hf - handFret) >= 2 && Math.abs(hf - handFret) <= moveBudget,
+        );
+        // Shift the way the line is already going. A hand that moves up the
+        // neck while the phrase descends produces the same notes and a shape
+        // that reads as scrambled.
+        const heading = prevMidi === null ? 0 : Math.sign(target.midi - prevMidi);
+        const withLine = away.filter((hf) => heading === 0 || Math.sign(hf - handFret) === heading);
+        const choices = withLine.length > 0 ? withLine : away;
+        if (choices.length > 0) {
+          handFret = pick(rng, choices);
+          sinceShift = 0;
+        }
       } else if (roomToShift && placeInHand(target.midi, handFret, prevString) === null) {
         const moved = handFor(target.midi);
         if (moved !== null) handFret = moved;
       }
 
-      let placed = placeInHand(target.midi, handFret, prevString);
+      // Skipping to a further string moves the same pitch about five frets, so
+      // one every other note at most: back to back they just saw up and down.
+      // It also only earns its keep when the line actually leaps — taking the
+      // note the hand is already on and playing it five frets away is a lurch
+      // with nothing to show for it.
+      const melodyLeaps = prevMidi === null || Math.abs(target.midi - prevMidi) >= 3;
+      const skipString =
+        hard.stringSkipChance > 0 && sinceSkip >= 2 && melodyLeaps && rng() < hard.stringSkipChance;
+      if (skipString) sinceSkip = 0;
+      // Which way the line is moving, so the note is taken on the string the
+      // phrase is heading towards rather than the one already under the hand.
+      const lineDir = prevMidi === null ? 0 : Math.sign(target.midi - prevMidi);
+      let placed = placeInHand(target.midi, handFret, prevString, skipString, lineDir);
       if (placed === null) {
         placed = nearestInHand(target.midi, handFret, prevString);
       }
@@ -599,24 +707,68 @@ export function generateRiff(
         // move stays possible at tempo.
         const moved = handFor(target.midi);
         if (moved !== null) {
-          handFret = roomToShift
-            ? moved
-            : Math.max(handFret - 4, Math.min(handFret + 4, moved));
+          handFret = Math.max(handFret - moveBudget, Math.min(handFret + moveBudget, moved));
         }
         placed =
           placeInHand(target.midi, handFret, prevString) ??
           nearestInHand(target.midi, handFret, prevString) ??
           target;
       }
-      // Last guard: with no time to move, the hand cannot travel more than a
-      // few frets between notes, whatever the contour asked for.
-      if (!roomToShift && prevFret !== null && Math.abs(placed.fret - prevFret) > 4) {
-        const close = all.filter((n) => Math.abs(n.fret - prevFret!) <= 4);
+      // Last guard: whatever the contour and the shift asked for, the note that
+      // actually sounds has to be within reach of the one before it in the time
+      // between them. Pick the closest pitch to the target that is.
+      if (prevFret !== null && Math.abs(placed.fret - prevFret) > travelBudget) {
+        const close = all.filter((n) => Math.abs(n.fret - prevFret!) <= travelBudget);
         if (close.length > 0) {
           placed = close.reduce((best, n) =>
             Math.abs(n.midi - target.midi) < Math.abs(best.midi - target.midi) ? n : best,
           );
           handFret = Math.max(lowFret, Math.min(highFret - HAND_SPAN + 1, placed.fret));
+        }
+      }
+
+      // A small step in the melody has to be a small move of the hand. When the
+      // pitch barely moves but the fingering jumps — the same note taken five
+      // frets away on the next string down — the line stands still while the
+      // hand lurches, which is the shape that reads as nonsense in the tab.
+      if (prevFret !== null && prevMidi !== null) {
+        const here = placed;
+        const step = Math.abs(here.midi - prevMidi);
+        const reach = Math.abs(here.fret - prevFret);
+        if (step <= 2 && reach >= 3) {
+          const near = all.filter(
+            (n) => n.midi === here.midi && Math.abs(n.fret - prevFret!) < reach,
+          );
+          if (near.length > 0) {
+            placed = near.reduce((best, n) =>
+              Math.abs(n.fret - prevFret!) < Math.abs(best.fret - prevFret!) ? n : best,
+            );
+            handFret = Math.max(lowFret, Math.min(highFret - HAND_SPAN + 1, placed.fret));
+          }
+        }
+      }
+
+      // A wide move answered straight away by a wide move the other way is the
+      // shape that reads as shuffled rather than played — 9 down to 5, then up
+      // to 12. The pitches are right; it is the fingering that lunged. Where
+      // the same note can be had closer to the hand, take it there instead.
+      if (prevFret !== null && prevDelta !== null) {
+        const here = placed;
+        const delta = here.fret - prevFret;
+        const reversal =
+          Math.sign(delta) !== Math.sign(prevDelta) &&
+          Math.min(Math.abs(delta), Math.abs(prevDelta)) >= 3 &&
+          Math.max(Math.abs(delta), Math.abs(prevDelta)) >= 4;
+        if (reversal) {
+          const alts = all.filter(
+            (n) => n.midi === here.midi && Math.abs(n.fret - prevFret!) < Math.abs(delta),
+          );
+          if (alts.length > 0) {
+            placed = alts.reduce((best, n) =>
+              Math.abs(n.fret - prevFret!) < Math.abs(best.fret - prevFret!) ? n : best,
+            );
+            handFret = Math.max(lowFret, Math.min(highFret - HAND_SPAN + 1, placed.fret));
+          }
         }
       }
 
@@ -655,10 +807,6 @@ export function generateRiff(
       if (bend && rng() < feel.bendChance * hard.techniqueScale * (dur >= Q / 2 ? 1.4 : 0.5)) {
         ev.bendAmount = bend;
         ev.technique = "bend";
-      } else if (rng() < feel.doubleStopChance * hard.techniqueScale && (onBeat || isFinal)) {
-        // Double stop — strongest on downbeats and at the end
-        const partner = doubleStopFor(sounded_note, all, rng, hard.stringSkipChance);
-        if (partner) ev.notes.push(partner);
       }
 
       // Slur or slide into the following note when they share a string
@@ -679,9 +827,13 @@ export function generateRiff(
       if (isFinal && !ev.bendAmount) ev.technique = "vibrato";
 
       events.push(ev);
+      prevDelta = prevFret === null ? null : sounded_note.fret - prevFret;
+      prevMidi = sounded_note.midi;
       prevString = sounded_note.stringIndex;
       prevFret = sounded_note.fret;
       lastOnset = tick;
+      sinceShift += 1;
+      sinceSkip += 1;
       tick += dur;
       sounded += 1;
     }
