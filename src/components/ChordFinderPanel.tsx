@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   allVoicings,
-  CHORD_CATEGORIES,
   chordNeck,
   commonVoicings,
   findChordType,
@@ -11,7 +10,6 @@ import {
   prettyNote,
   rootNames,
   spellChord,
-  typesInCategory,
 } from "../music/chordFinder";
 import { buildChordArpeggio, ROOT_FINGERS, ROOT_STRINGS, STRING_ORDINAL } from "../music/arpeggios";
 import { SCALE_KEYS, ScaleDiagram } from "../music/scales";
@@ -19,6 +17,7 @@ import { chooseRun, noteAt, posKey, RunNote, upAndDown } from "../music/runs";
 import { midiFor } from "../music/tuning";
 import { ChordFinderState } from "../hooks/useChordFinder";
 import { usePlayback } from "../hooks/usePlayback";
+import { LabelMode, LabelToggle, useLabelMode } from "../hooks/useLabelMode";
 import { ChordDiagram } from "./ChordDiagram";
 import { FretboardDiagram } from "./FretboardDiagram";
 import { ArpeggioNeck } from "./ArpeggioNeck";
@@ -26,11 +25,9 @@ import { ArpeggioNeck } from "./ArpeggioNeck";
 type ChordFinderPanelProps = {
   finder: ChordFinderState;
   tempoBpm?: number;
-  // Jump to the Scales tab with this scale and key up
+  // Jump to the Scales page with this scale and key up
   onOpenScale?: (scaleId: string, keyLabel: string) => void;
 };
-
-type LabelMode = "intervals" | "notes";
 
 // Sounding notes of a grip, low string first
 const gripNotes = (v: FinderVoicing): RunNote[] =>
@@ -39,7 +36,7 @@ const gripNotes = (v: FinderVoicing): RunNote[] =>
     .filter((n): n is RunNote => n !== null);
 
 export function ChordFinderPanel({ finder, tempoBpm = 90, onOpenScale }: ChordFinderPanelProps): JSX.Element {
-  const [labelMode, setLabelMode] = useState<LabelMode>("intervals");
+  const labelMode = useLabelMode();
   const [selected, setSelected] = useState(0);
   const playback = usePlayback(tempoBpm);
   const { playing, activeIndex, activeNote, playChord, playSequence, stop } = playback;
@@ -87,7 +84,7 @@ export function ChordFinderPanel({ finder, tempoBpm = 90, onOpenScale }: ChordFi
   return (
     <section className="card chords-panel finder-panel">
       <div className="chords-panel-header">
-        <div className="viewer-book">Chord Finder</div>
+        <div className="viewer-book">Chords</div>
         <h2 className="chords-title">
           {chordName}{" "}
           <span className="chords-key">
@@ -105,151 +102,6 @@ export function ChordFinderPanel({ finder, tempoBpm = 90, onOpenScale }: ChordFi
           {tones.some((x) => x.optional) && (
             <span className="finder-tone-hint">faded tones are often left out</span>
           )}
-        </div>
-      </div>
-
-      {/* ── Root ── */}
-      <div className="label-toggle-row finder-row">
-        <span className="label-toggle-caption">Root:</span>
-        <div className="segmented finder-wrap">
-          {names.map((n, pc) => (
-            <button
-              key={n}
-              type="button"
-              className={`segment${finder.rootPc === pc ? " active" : ""}`}
-              onClick={() => finder.setRootPc(pc)}
-            >
-              {prettyNote(n)}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="segment"
-          onClick={finder.toggleAccidentals}
-          title="Name the black keys with sharps or flats"
-        >
-          {finder.accidentals === "flat" ? "♭ → ♯" : "♯ → ♭"}
-        </button>
-      </div>
-
-      {/* ── Chord type ── */}
-      <div className="label-toggle-row finder-row">
-        <span className="label-toggle-caption">Family:</span>
-        <div className="segmented finder-wrap">
-          {CHORD_CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`segment${finder.category === c ? " active" : ""}`}
-              onClick={() => finder.setCategory(c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="label-toggle-row finder-row">
-        <span className="label-toggle-caption">Chord:</span>
-        <div className="segmented finder-wrap">
-          {typesInCategory(finder.category).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`segment${finder.typeId === t.id ? " active" : ""}`}
-              onClick={() => finder.setTypeId(t.id)}
-              title={t.name}
-            >
-              {t.suffix === "" ? "maj" : t.suffix}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Bass note: inversions from the chord's own tones, or any note ── */}
-      <div className="label-toggle-row finder-row">
-        <span className="label-toggle-caption">Bass:</span>
-        <div className="segmented finder-wrap">
-          <button
-            type="button"
-            className={`segment${finder.bassPc === null ? " active" : ""}`}
-            onClick={() => finder.setBassPc(null)}
-          >
-            Root
-          </button>
-          {tones
-            .filter((x) => x.semis !== 0)
-            .map((x) => (
-              <button
-                key={x.pc}
-                type="button"
-                className={`segment${finder.bassPc === x.pc ? " active" : ""}`}
-                onClick={() => finder.setBassPc(x.pc)}
-                title={`${x.label} in the bass`}
-              >
-                /{prettyNote(x.note)}
-              </button>
-            ))}
-        </div>
-        <select
-          className="menu-select finder-bass-select"
-          aria-label="Any bass note"
-          value={finder.bassPc !== null && !tones.some((x) => x.pc === finder.bassPc) ? finder.bassPc : ""}
-          onChange={(e) => finder.setBassPc(e.target.value === "" ? null : Number(e.target.value))}
-        >
-          <option value="">Other bass…</option>
-          {names.map((n, pc) =>
-            tones.some((x) => x.pc === pc) ? null : (
-              <option key={n} value={pc}>
-                /{prettyNote(n)}
-              </option>
-            ),
-          )}
-        </select>
-      </div>
-
-      {/* ── View switch ── */}
-      <div className="label-toggle-row finder-row">
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${finder.view === "voicings" ? " active" : ""}`}
-            onClick={() => finder.setView("voicings")}
-          >
-            Voicings
-          </button>
-          <button
-            type="button"
-            className={`segment${finder.view === "arpeggio" ? " active" : ""}`}
-            onClick={() => finder.setView("arpeggio")}
-          >
-            Arpeggio
-          </button>
-          <button
-            type="button"
-            className={`segment${finder.view === "scales" ? " active" : ""}`}
-            onClick={() => finder.setView("scales")}
-          >
-            Matching scales
-          </button>
-        </div>
-
-        <span className="label-toggle-caption">Labels:</span>
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${labelMode === "intervals" ? " active" : ""}`}
-            onClick={() => setLabelMode("intervals")}
-          >
-            Intervals
-          </button>
-          <button
-            type="button"
-            className={`segment${labelMode === "notes" ? " active" : ""}`}
-            onClick={() => setLabelMode("notes")}
-          >
-            Notes
-          </button>
         </div>
       </div>
 
@@ -273,6 +125,7 @@ export function ChordFinderPanel({ finder, tempoBpm = 90, onOpenScale }: ChordFi
                 All ({Math.min(found.length, 60)})
               </button>
             </div>
+            <LabelToggle />
             {current && (
               <>
                 <button type="button" className="play-button" onClick={() => strum(current, selected)}>
@@ -463,6 +316,7 @@ function ChordArpeggio({
       )}
 
       <div className="label-toggle-row finder-row">
+        <LabelToggle />
         <button
           type="button"
           className="play-button"

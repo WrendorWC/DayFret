@@ -15,6 +15,10 @@ export type ChordFinderState = {
   showAll: boolean;
   setRootPc: (pc: number) => void;
   toggleAccidentals: () => void;
+  setAccidentals: (a: "sharp" | "flat") => void;
+  // Bring up one chord from elsewhere in the app (a progression card, a scale
+  // degree): its root, its type, and the family row that lists it.
+  openChord: (rootPc: number, typeId: string, rootName?: string) => void;
   setCategory: (c: ChordCategory) => void;
   setTypeId: (id: string) => void;
   setBassPc: (pc: number | null) => void;
@@ -45,6 +49,20 @@ export function useChordFinder(): ChordFinderState {
       setBassPc(null);
     },
     toggleAccidentals: () => setAccidentals((a) => (a === "sharp" ? "flat" : "sharp")),
+    setAccidentals,
+    openChord: (pc, id, rootName) => {
+      const chordType = findChordType(id);
+      setRoot(((pc % 12) + 12) % 12);
+      setType(chordType.id);
+      setBassPc(null);
+      setView("voicings");
+      // Name the root the way the chart that sent it did: F♯ stays F♯
+      if (rootName && rootName.length > 1) setAccidentals(rootName.includes("#") ? "sharp" : "flat");
+      // Keep the family row on screen if it already lists the chord
+      if (!typesInCategory(category).some((t) => t.id === chordType.id)) {
+        setCat(typesInCategory("Common").some((t) => t.id === chordType.id) ? "Common" : chordType.category);
+      }
+    },
     setCategory: (c) => {
       setCat(c);
       // Keep the current chord if the new category lists it, else take its first

@@ -1,8 +1,10 @@
+import { finderTypeForQuality } from "../music/chordFinder";
 import { useEffect, useMemo, useState } from "react";
 import { ChartKey, voicingsForChord } from "../music/chords";
 import { romanFor, ScaleDef, scaleChordDegrees } from "../music/scales";
 import { midiFor } from "../music/tuning";
 import { usePlayback } from "../hooks/usePlayback";
+import { LabelToggle, useLabelMode } from "../hooks/useLabelMode";
 import { ChordDiagram } from "./ChordDiagram";
 import { CyclerRow } from "./CyclerRow";
 import { QUALITY_NAMES } from "./qualityNames";
@@ -10,8 +12,10 @@ import { QUALITY_NAMES } from "./qualityNames";
 type ScaleChordsPanelProps = {
   scale: ScaleDef;
   chartKey: ChartKey;
-  onSwap: () => void;
+  onSwap?: () => void;
   tempoBpm?: number;
+  // Open a chord on the Chords page
+  onOpenChord?: (rootPc: number, typeId: string, rootName: string) => void;
 };
 
 type CellState = { qualityIndex: number; voicingIndex: number };
@@ -21,8 +25,9 @@ export function ScaleChordsPanel({
   chartKey,
   onSwap,
   tempoBpm = 90,
+  onOpenChord,
 }: ScaleChordsPanelProps): JSX.Element {
-  const [labelMode, setLabelMode] = useState<"intervals" | "notes">("intervals");
+  const labelMode = useLabelMode();
   const { playing, activeIndex, playChord, playChords, stop } = usePlayback(tempoBpm);
   const midisOf = (frets: Array<number | null>) =>
     frets
@@ -82,23 +87,7 @@ export function ScaleChordsPanel({
       </div>
 
       <div className="label-toggle-row">
-        <span className="label-toggle-caption">String labels:</span>
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${labelMode === "intervals" ? " active" : ""}`}
-            onClick={() => setLabelMode("intervals")}
-          >
-            Intervals
-          </button>
-          <button
-            type="button"
-            className={`segment${labelMode === "notes" ? " active" : ""}`}
-            onClick={() => setLabelMode("notes")}
-          >
-            Notes
-          </button>
-        </div>
+        <LabelToggle />
 
         <button
           type="button"
@@ -114,9 +103,11 @@ export function ScaleChordsPanel({
           {playing ? "■ Stop" : "▶ Play all"}
         </button>
 
-        <button type="button" className="swap-button" onClick={onSwap}>
-          ⇄ Back to the scale
-        </button>
+        {onSwap && (
+          <button type="button" className="swap-button" onClick={onSwap}>
+            ⇄ Back to the scale
+          </button>
+        )}
       </div>
 
       <div className="chords-grid">
@@ -141,6 +132,16 @@ export function ScaleChordsPanel({
               <ChordDiagram chord={chord} labelMode={labelMode} />
 
               <div className="chord-voicing-label">{chord.voicingLabel}</div>
+              {onOpenChord && (
+                <button
+                  type="button"
+                  className="open-chord-link"
+                  onClick={() => onOpenChord(chord.rootPc, finderTypeForQuality(chord.quality), chord.rootName)}
+                  title={`Every voicing of ${chord.name}, its arpeggio and the scales that fit`}
+                >
+                  All voicings ›
+                </button>
+              )}
 
               <CyclerRow
                 caption={`Voicing ${(cell.voicingIndex % options.length) + 1}/${options.length}`}

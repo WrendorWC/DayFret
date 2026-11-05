@@ -476,3 +476,13 @@ export function matchingScales(type: FinderChordType, rootPc: number): ScaleMatc
   }
   return out;
 }
+
+// ── Links from the rest of the app ────────────────────────────────────────────
+
+// The progression charts and scale harmonizer name chords by their own
+// quality ids. All but one are the dictionary's ids too; their "aug7" is the
+// augmented seventh, which the dictionary spells 7♯5.
+export function finderTypeForQuality(quality: string): string {
+  if (quality === "aug7") return "7#5";
+  return FINDER_CHORD_TYPES.some((c) => c.id === quality) ? quality : "maj";
+}

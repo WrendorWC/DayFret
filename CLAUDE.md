@@ -37,6 +37,26 @@ committing.
   that runs from `file://`. Both apps share the same components and music
   engine, so a change to `src/music` or `src/components` hits both.
 
+## Page layout
+
+Both apps use the same structure, and new pages should follow it:
+
+- **Navigation in two groups.** *Practice* is things you play (Today, Books,
+  Progressions, Riffs); *Reference* is things you look up (Chords, Scales).
+  The standalone app has no PDF books, so no Today/Books.
+- **The sidebar holds only navigation and app-wide tools** (metronome, timer).
+  A page's own pickers go in a toolbar card at the top of the page
+  (`components/PageToolbars.tsx`), and the content card sits below it.
+- **One Intervals/Notes setting** (`hooks/useLabelMode.tsx`), remembered in
+  localStorage. Panels render `<LabelToggle />` beside their play button
+  rather than keeping their own state.
+- **Chords, Scales and Riffs share one key** (`hooks/useReference.ts`). Only the
+  key pickers sync. Cross-links (a chord card's "All voicings ›", a matching
+  scale) open their target without changing the key elsewhere.
+- **Any chord card links to its Chords page** via `onOpenChord`, so voicings,
+  arpeggios and matching scales live in one place instead of being rebuilt
+  per page.
+
 ## Code map
 
 `src/music/` is the theory engine — pure TypeScript, no React, no DOM. This is
@@ -75,6 +95,38 @@ drop the note.
 Wide windows can contain the same pitch in two places (adjacent strings, five
 frets apart). That's expected — `chooseRun` in `runs.ts` picks the one that's
 easier under the hand and reports the other so the diagram can shade it.
+
+**Riffs** (`riffs.ts`) are built in three passes, and each has its own job:
+
+1. **Notes.** A short motif (two beats for rock, funk and gallop, a bar for
+   blues and melodic) is repeated and developed: repeated at Simple, answered
+   at Moderate, transposed at Tricky, contrasted at Brutal. Then comes an ending
+   that lands on a held root on a beat. Pitch choice is weighted by the beat:
+   chord tones on beats 1 and 3. Rock and gallop riffs may pump a low root
+   pedal under the tune. Chromatic notes are always approach notes a half step
+   into a strong beat, never stand-ins for a scale tone.
+2. **Fingering.** One shortest-path pass over every string/fret option. It
+   keeps the hand in the box and on the feel's strings, and it crosses strings
+   rather than sliding along one (the riff rule: one position, crossing
+   strings). It only moves the hand when there is time to.
+3. **Decorations.** Chosen last, from the final fingering: a slur or slide
+   only goes straight into a note on the same string, and a bend only goes on
+   a note long enough to reach pitch.
+
+Difficulty comes from technique (density, sequences, leaps between chord
+tones, approach notes, reach), not from more randomness. Tricky and Brutal are
+4 bars, with sixteenths and sextuplets at Brutal. At those two levels, low
+riffs keep to the A, D and G strings and come down to the low E only for its
+root. A busy line parked on the low E sounds like mud. No pitch repeats more
+than twice running, and a final pass removes A-B-A-B trills.
+
+**Span** (1–3 positions) makes a riff travel: it climbs from the chosen box
+through the next one or two, carrying the motif up with it, slides where the
+move is on one string, and ends on a root in the last box. It is never a pedal
+riff, since a pedal holds the hand in one place.
+
+`./scripts/check-riffs.sh` sweeps about 17,000 riffs and fails if any of these
+rules break. Run it after touching `riffs.ts`.
 
 All date logic is anchored to `America/New_York`, on purpose, so the daily
 practice set doesn't shift with the browser's timezone.

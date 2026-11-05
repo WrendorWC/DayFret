@@ -1,3 +1,4 @@
+import { finderTypeForQuality } from "../music/chordFinder";
 import { useEffect, useState } from "react";
 import {
   ChordChart,
@@ -8,6 +9,7 @@ import {
 } from "../music/chords";
 import { midiFor } from "../music/tuning";
 import { usePlayback } from "../hooks/usePlayback";
+import { LabelToggle, useLabelMode } from "../hooks/useLabelMode";
 import { ChordDiagram } from "./ChordDiagram";
 import { CyclerRow } from "./CyclerRow";
 import { QUALITY_NAMES } from "./qualityNames";
@@ -18,6 +20,8 @@ type ChordChartPanelProps = {
   onSwap?: () => void; // jump to the paired view (e.g. back to the scale)
   swapLabel?: string;
   tempoBpm?: number;
+  // Open a chord on the Chords page
+  onOpenChord?: (rootPc: number, typeId: string, rootName: string) => void;
 };
 
 // Per-chord tweaks made with the cyclers. Absent means "use the chart's own
@@ -30,10 +34,11 @@ export function ChordChartPanel({
   onSwap,
   swapLabel,
   tempoBpm = 90,
+  onOpenChord,
 }: ChordChartPanelProps): JSX.Element {
   const keyLabel = `${chart.key.label} ${chart.mode}`;
   const isKeyless = chart.progression.keyless === true;
-  const [labelMode, setLabelMode] = useState<"intervals" | "notes">("intervals");
+  const labelMode = useLabelMode();
   const [overrides, setOverrides] = useState<Record<number, Override>>({});
   const { playing, activeIndex, playChord, playChords, stop } = usePlayback(tempoBpm);
 
@@ -132,23 +137,7 @@ export function ChordChartPanel({
       )}
 
       <div className="label-toggle-row">
-        <span className="label-toggle-caption">String labels:</span>
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${labelMode === "intervals" ? " active" : ""}`}
-            onClick={() => setLabelMode("intervals")}
-          >
-            Intervals
-          </button>
-          <button
-            type="button"
-            className={`segment${labelMode === "notes" ? " active" : ""}`}
-            onClick={() => setLabelMode("notes")}
-          >
-            Notes
-          </button>
-        </div>
+        <LabelToggle />
 
         <button
           type="button"
@@ -195,6 +184,16 @@ export function ChordChartPanel({
               <ChordDiagram chord={chord} labelMode={labelMode} />
 
               <div className="chord-voicing-label">{chord.voicingLabel}</div>
+              {onOpenChord && (
+                <button
+                  type="button"
+                  className="open-chord-link"
+                  onClick={() => onOpenChord(chord.rootPc, finderTypeForQuality(chord.quality), chord.rootName)}
+                  title={`Every voicing of ${chord.name}, its arpeggio and the scales that fit`}
+                >
+                  All voicings ›
+                </button>
+              )}
 
               {!isKeyless && (
                 <>

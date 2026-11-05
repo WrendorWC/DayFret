@@ -8,9 +8,10 @@ import { ScaleChordsPanel } from "./components/ScaleChordsPanel";
 import { ArpeggioPanel } from "./components/ArpeggioPanel";
 import { RiffPanel } from "./components/RiffPanel";
 import { ChordFinderPanel } from "./components/ChordFinderPanel";
-import { useChordFinder } from "./hooks/useChordFinder";
+import { ChordToolbar, ProgressionToolbar, ScaleToolbar } from "./components/PageToolbars";
+import { ScaleChordShape, ScaleView, ScaleViewRow } from "./components/ScaleViewRow";
 import { useChordChart } from "./hooks/useChordChart";
-import { useScaleView } from "./hooks/useScaleView";
+import { useReference } from "./hooks/useReference";
 import {
   findBook,
   findKey,
@@ -26,6 +27,20 @@ import {
 const TIME_ZONE = "America/New_York";
 
 type TimePeriod = "morning" | "afternoon" | "evening";
+
+type Tab = "daily" | "browse" | "progressions" | "riffs" | "chords" | "scales";
+
+const PRACTICE_TABS: Array<{ id: Tab; label: string }> = [
+  { id: "daily", label: "Today" },
+  { id: "browse", label: "Books" },
+  { id: "progressions", label: "Progressions" },
+  { id: "riffs", label: "Riffs" },
+];
+
+const REFERENCE_TABS: Array<{ id: Tab; label: string }> = [
+  { id: "chords", label: "Chords" },
+  { id: "scales", label: "Scales" },
+];
 
 // Returns one of three named periods based on the local hour in TIME_ZONE.
 // Morning: before noon  |  Afternoon: noon–4 pm  |  Evening: 5 pm onward
@@ -73,9 +88,7 @@ export default function App(): JSX.Element {
   }, [period]);
 
   // ── Tab ────────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"browse" | "daily" | "chords" | "finder" | "scales" | "riffs">(
-    "daily",
-  );
+  const [activeTab, setActiveTab] = useState<Tab>("daily");
 
   // ── Browse state ───────────────────────────────────────────────────────────
   const firstBook = PDF_BOOKS[0];
@@ -101,14 +114,22 @@ export default function App(): JSX.Element {
   // ── Chord Chart state (shared hook, same behavior as the standalone app) ──
   const chords = useChordChart(dateISO);
 
-  // ── Chord Finder state (any chord, any root — the chord dictionary) ──────
-  const finder = useChordFinder();
+  // ── Reference pages: Chords and Scales share one key (Riffs plays from
+  // the Scales pick, so it follows too) ──────────────────────────────────────
+  const { finder, scaleView } = useReference();
+  const [scaleMode, setScaleMode] = useState<ScaleView>("positions");
+  const [scaleChordShape, setScaleChordShape] = useState<ScaleChordShape>("grips");
 
-  // ── Scale Explorer state ──────────────────────────────────────────────────
-  // The swap button flips the Scales tab between the fretboard and a chart of
-  // every chord the scale harmonizes to, in the same key.
-  const scaleView = useScaleView();
-  const [scaleMode, setScaleMode] = useState<"fretboard" | "chords" | "arpeggios">("fretboard");
+  // Any chord card in the app opens that chord on the Chords page
+  const openChord = (rootPc: number, typeId: string, rootName: string): void => {
+    finder.openChord(rootPc, typeId, rootName);
+    setActiveTab("chords");
+  };
+  const openScale = (scaleId: string, keyLabel: string): void => {
+    scaleView.selectScale(scaleId, keyLabel);
+    setScaleMode("positions");
+    setActiveTab("scales");
+  };
 
   // ── Active display (driven by whichever tab is open) ──────────────────────
   // dailyKey is always a PracticeKey (has bookId + sectionId); selectedKey is PdfKeyEntry.
@@ -224,317 +245,43 @@ export default function App(): JSX.Element {
         <aside className="sidebar-stack">
 
           <header className="app-header">
-            <h1>DayFret</h1>
+            <h1>
+              <img src="/dayfret-icon.svg" alt="" className="app-title-icon" />
+              DayFret
+            </h1>
             <p className="app-greeting">{greeting}</p>
             <p className="app-date">{dateLabel}</p>
           </header>
 
-          {/* Tab bar — practice material on top, reference tools below */}
-          <div className="tab-bar">
-            <div className="segmented">
-              <button
-                type="button"
-                className={`segment${activeTab === "daily" ? " active" : ""}`}
-                onClick={() => setActiveTab("daily")}
-              >
-                Daily Practice
-              </button>
-              <button
-                type="button"
-                className={`segment${activeTab === "browse" ? " active" : ""}`}
-                onClick={() => setActiveTab("browse")}
-              >
-                Browse
-              </button>
+          {/* Navigation: things you play, then things you look up */}
+          <nav className="side-nav" aria-label="Sections">
+            <div className="nav-caption">Practice</div>
+            <div className="segmented nav-grid">
+              {PRACTICE_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`segment${activeTab === t.id ? " active" : ""}`}
+                  onClick={() => setActiveTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-
-            <div className="tab-divider" />
-
-            <div className="segmented">
-              <button
-                type="button"
-                className={`segment${activeTab === "chords" ? " active" : ""}`}
-                onClick={() => setActiveTab("chords")}
-              >
-                Chords
-              </button>
-              <button
-                type="button"
-                className={`segment${activeTab === "finder" ? " active" : ""}`}
-                onClick={() => setActiveTab("finder")}
-              >
-                Chord Finder
-              </button>
-              <button
-                type="button"
-                className={`segment${activeTab === "scales" ? " active" : ""}`}
-                onClick={() => setActiveTab("scales")}
-              >
-                Scales
-              </button>
-              <button
-                type="button"
-                className={`segment${activeTab === "riffs" ? " active" : ""}`}
-                onClick={() => setActiveTab("riffs")}
-              >
-                Riffs
-              </button>
+            <div className="nav-caption">Reference</div>
+            <div className="segmented nav-grid">
+              {REFERENCE_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`segment${activeTab === t.id ? " active" : ""}`}
+                  onClick={() => setActiveTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-          </div>
-
-          {/* ── Browse controls ── */}
-          {activeTab === "browse" && (
-            <section className="card controls-card">
-              <div className="section-heading">Session</div>
-
-              <label className="field-label" htmlFor="book-select">
-                Book
-              </label>
-              <select
-                id="book-select"
-                className="menu-select"
-                value={selectedBook.id}
-                onChange={(event) => {
-                  const nextBook = findBook(event.target.value as (typeof PDF_BOOKS)[number]["id"]);
-                  const nextFirstSection = nextBook.sections[0];
-                  setSelectedBookId(nextBook.id);
-                  setSelectedSectionId(nextFirstSection.id);
-                  setSelectedKeyId(nextFirstSection.keys[0].id);
-                }}
-              >
-                {PDF_BOOKS.map((book) => (
-                  <option key={book.id} value={book.id}>
-                    {book.title}
-                  </option>
-                ))}
-              </select>
-
-              <label className="field-label" htmlFor="section-select">
-                Section
-              </label>
-              <select
-                id="section-select"
-                className="menu-select"
-                value={selectedSection.id}
-                onChange={(event) => {
-                  const nextSection = selectedBook.sections.find((s) => s.id === event.target.value);
-                  if (!nextSection) return;
-                  setSelectedSectionId(nextSection.id);
-                  setSelectedKeyId(nextSection.keys[0].id);
-                }}
-              >
-                {selectedBook.sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.title}
-                  </option>
-                ))}
-              </select>
-
-              <label className="field-label" htmlFor="key-select">
-                Key
-              </label>
-              <select
-                id="key-select"
-                className="menu-select"
-                value={selectedKeyId}
-                onChange={(event) => {
-                  setSelectedKeyId(event.target.value);
-                }}
-              >
-                {selectedSection.keys.map((key) => (
-                  <option key={key.id} value={key.id}>
-                    {key.label}
-                  </option>
-                ))}
-              </select>
-
-              <div className="pager-row">
-                <button
-                  type="button"
-                  className="segment"
-                  onClick={goToPrevKey}
-                  disabled={!hasPrevKey}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="segment"
-                  onClick={goToNextKey}
-                  disabled={!hasNextKey}
-                >
-                  Next
-                </button>
-              </div>
-
-              <div className="menu-summary">
-                {selectedBook.title} · {selectedSection.title} · {selectedKey.label}
-              </div>
-            </section>
-          )}
-
-          {/* ── Daily Practice controls ── */}
-          {activeTab === "daily" && (
-            <section className="card controls-card daily-controls-card">
-              <div className="daily-counter">
-                {dailyIndex + 1} <span>/ {dailyPracticeKeys.length}</span>
-              </div>
-
-              <div className="daily-info">
-                <div className="viewer-book">{activeBook.title}</div>
-                <div className="daily-section-title">{activeSection.title}</div>
-                <div className="menu-summary">{activeKey.label}</div>
-              </div>
-
-              <div className="pager-row">
-                <button
-                  type="button"
-                  className="segment"
-                  onClick={goPrevDaily}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="segment"
-                  onClick={goNextDaily}
-                >
-                  Next
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* ── Chord Chart controls ── */}
-          {activeTab === "chords" && (
-            <section className="card controls-card">
-              <div className="card-label">{chords.heading}</div>
-
-              <label className="field-label" htmlFor="chord-progression-select">
-                Progression
-              </label>
-              <select
-                id="chord-progression-select"
-                className="menu-select"
-                value={chords.chart.progression.id}
-                onChange={(event) => chords.onPickProgression(event.target.value)}
-              >
-                {chords.progressions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-
-              <label className="field-label" htmlFor="chord-key-select">
-                Key
-              </label>
-              <select
-                id="chord-key-select"
-                className="menu-select"
-                value={chords.chart.key.label}
-                onChange={(event) => chords.onPickKey(event.target.value)}
-                disabled={chords.chart.progression.keyless}
-              >
-                {chords.chart.progression.keyless ? (
-                  <option value={chords.chart.key.label}>Open position</option>
-                ) : (
-                  chords.keysForChart.map((k) => (
-                    <option key={k.label} value={k.label}>
-                      {k.label} {chords.chart.progression.mode}
-                    </option>
-                  ))
-                )}
-              </select>
-
-              <button type="button" className="primary-button" onClick={chords.onSurpriseMe}>
-                Surprise Me
-              </button>
-
-              <div className="pager-row">
-                <button type="button" className="segment" onClick={chords.onNewVoicings}>
-                  New Voicings
-                </button>
-                <button
-                  type="button"
-                  className="segment"
-                  onClick={chords.onBackToToday}
-                  disabled={chords.isDailyChart}
-                >
-                  Today
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* ── Scale Explorer controls (shared with the Riffs tab) ── */}
-          {(activeTab === "scales" || activeTab === "riffs") && (
-            <section className="card controls-card">
-              <div className="card-label">
-                {activeTab === "riffs" ? "Riff Source" : "Scale Explorer"}
-              </div>
-
-              <label className="field-label" htmlFor="scale-select">
-                Scale
-              </label>
-              <select
-                id="scale-select"
-                className="menu-select"
-                value={scaleView.diagram.scale.id}
-                onChange={(event) => scaleView.onPickScale(event.target.value)}
-              >
-                {scaleView.scales.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-
-              <label className="field-label" htmlFor="scale-key-select">
-                Key
-              </label>
-              <select
-                id="scale-key-select"
-                className="menu-select"
-                value={scaleView.diagram.key.label}
-                onChange={(event) => scaleView.onPickKey(event.target.value)}
-              >
-                {scaleView.keys.map((k) => (
-                  <option key={k.label} value={k.label}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-
-              {activeTab === "scales" && <label className="field-label">View</label>}
-              <div
-                className="segmented scale-view-switch"
-                style={activeTab === "riffs" ? { display: "none" } : undefined}
-              >
-                <button
-                  type="button"
-                  className={`segment${scaleMode === "fretboard" ? " active" : ""}`}
-                  onClick={() => setScaleMode("fretboard")}
-                >
-                  Scale
-                </button>
-                <button
-                  type="button"
-                  className={`segment${scaleMode === "chords" ? " active" : ""}`}
-                  onClick={() => setScaleMode("chords")}
-                >
-                  Chords
-                </button>
-                <button
-                  type="button"
-                  className={`segment${scaleMode === "arpeggios" ? " active" : ""}`}
-                  onClick={() => setScaleMode("arpeggios")}
-                >
-                  Arps
-                </button>
-              </div>
-            </section>
-          )}
+          </nav>
 
           {/* ── Metronome (always visible) ── */}
           <section className="card controls-grid">
@@ -603,60 +350,178 @@ export default function App(): JSX.Element {
 
           {/* ── App icon — fills sidebar width, sits at the bottom ── */}
           <img
-            src="/dayfret-icon.png"
+            src="/dayfret-icon.svg"
             alt="DayFret"
             className="sidebar-icon"
           />
         </aside>
 
-        {activeTab === "chords" ? (
-          <ChordChartPanel chart={chords.chart} heading={chords.heading} tempoBpm={tempoBpm} />
-        ) : activeTab === "finder" ? (
-          <ChordFinderPanel
-            finder={finder}
-            tempoBpm={tempoBpm}
-            onOpenScale={(scaleId, keyLabel) => {
-              scaleView.selectScale(scaleId, keyLabel);
-              setScaleMode("fretboard");
-              setActiveTab("scales");
-            }}
-          />
-        ) : activeTab === "riffs" ? (
-          <RiffPanel
-            scale={scaleView.diagram.scale}
-            chartKey={scaleView.diagram.key}
-            dateISO={dateISO}
-            tempoBpm={tempoBpm}
-            onTempoChange={setTempoBpm}
-            getNextBeat={getNextBeat}
-          />
-        ) : activeTab === "scales" ? (
-          scaleMode === "chords" ? (
-            <ScaleChordsPanel
-              scale={scaleView.diagram.scale}
-              chartKey={scaleView.diagram.key}
-              onSwap={() => setScaleMode("fretboard")}
-              tempoBpm={tempoBpm}
-            />
-          ) : scaleMode === "arpeggios" ? (
-            <ArpeggioPanel
-              scale={scaleView.diagram.scale}
-              chartKey={scaleView.diagram.key}
-              tempoBpm={tempoBpm}
-            />
-          ) : (
-            <ScalePanel
-              diagram={scaleView.diagram}
-              onSwap={() => setScaleMode("chords")}
-              tempoBpm={tempoBpm}
-            />
-          )
-        ) : (
-          <PdfPageCanvas
-            file={activeBook.file}
-            page={activePage}
-          />
-        )}
+        <div className="page-column">
+          {activeTab === "daily" && (
+            <section className="card page-toolbar">
+              <div className="label-toggle-row finder-row">
+                <span className="daily-counter toolbar-counter">
+                  {dailyIndex + 1} <span>/ {dailyPracticeKeys.length}</span>
+                </span>
+                <span className="toolbar-summary">
+                  <strong>{activeSection.title}</strong> · {activeKey.label}
+                  <span className="toolbar-summary-book"> — {activeBook.title}</span>
+                </span>
+                <div className="segmented toolbar-actions">
+                  <button type="button" className="segment" onClick={goPrevDaily}>
+                    Prev
+                  </button>
+                  <button type="button" className="segment" onClick={goNextDaily}>
+                    Next
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === "browse" && (
+            <section className="card page-toolbar">
+              <div className="label-toggle-row finder-row">
+                <label className="label-toggle-caption" htmlFor="book-select">
+                  Book:
+                </label>
+                <select
+                  id="book-select"
+                  className="menu-select toolbar-select"
+                  value={selectedBook.id}
+                  onChange={(event) => {
+                    const nextBook = findBook(event.target.value as (typeof PDF_BOOKS)[number]["id"]);
+                    const nextFirstSection = nextBook.sections[0];
+                    setSelectedBookId(nextBook.id);
+                    setSelectedSectionId(nextFirstSection.id);
+                    setSelectedKeyId(nextFirstSection.keys[0].id);
+                  }}
+                >
+                  {PDF_BOOKS.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="label-toggle-caption" htmlFor="section-select">
+                  Section:
+                </label>
+                <select
+                  id="section-select"
+                  className="menu-select toolbar-select"
+                  value={selectedSection.id}
+                  onChange={(event) => {
+                    const nextSection = selectedBook.sections.find((s) => s.id === event.target.value);
+                    if (!nextSection) return;
+                    setSelectedSectionId(nextSection.id);
+                    setSelectedKeyId(nextSection.keys[0].id);
+                  }}
+                >
+                  {selectedBook.sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.title}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="label-toggle-caption" htmlFor="key-select">
+                  Key:
+                </label>
+                <select
+                  id="key-select"
+                  className="menu-select toolbar-select toolbar-select-narrow"
+                  value={selectedKeyId}
+                  onChange={(event) => setSelectedKeyId(event.target.value)}
+                >
+                  {selectedSection.keys.map((key) => (
+                    <option key={key.id} value={key.id}>
+                      {key.label}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="segmented toolbar-actions">
+                  <button type="button" className="segment" onClick={goToPrevKey} disabled={!hasPrevKey}>
+                    Prev
+                  </button>
+                  <button type="button" className="segment" onClick={goToNextKey} disabled={!hasNextKey}>
+                    Next
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === "progressions" && (
+            <>
+              <ProgressionToolbar chords={chords} />
+              <ChordChartPanel
+                chart={chords.chart}
+                heading={chords.heading}
+                tempoBpm={tempoBpm}
+                onOpenChord={openChord}
+              />
+            </>
+          )}
+
+          {activeTab === "riffs" && (
+            <>
+              <ScaleToolbar scaleView={scaleView} />
+              <RiffPanel
+                scale={scaleView.diagram.scale}
+                chartKey={scaleView.diagram.key}
+                dateISO={dateISO}
+                tempoBpm={tempoBpm}
+                onTempoChange={setTempoBpm}
+                getNextBeat={getNextBeat}
+                onSelectScale={scaleView.selectScale}
+              />
+            </>
+          )}
+
+          {activeTab === "chords" && (
+            <>
+              <ChordToolbar finder={finder} />
+              <ChordFinderPanel finder={finder} tempoBpm={tempoBpm} onOpenScale={openScale} />
+            </>
+          )}
+
+          {activeTab === "scales" && (
+            <>
+              <ScaleToolbar scaleView={scaleView}>
+                <ScaleViewRow
+                  view={scaleMode}
+                  onView={setScaleMode}
+                  shape={scaleChordShape}
+                  onShape={setScaleChordShape}
+                  onRiffs={() => setActiveTab("riffs")}
+                />
+              </ScaleToolbar>
+              {scaleMode === "positions" ? (
+                <ScalePanel diagram={scaleView.diagram} tempoBpm={tempoBpm} />
+              ) : scaleChordShape === "grips" ? (
+                <ScaleChordsPanel
+                  scale={scaleView.diagram.scale}
+                  chartKey={scaleView.diagram.key}
+                  tempoBpm={tempoBpm}
+                  onOpenChord={openChord}
+                />
+              ) : (
+                <ArpeggioPanel
+                  scale={scaleView.diagram.scale}
+                  chartKey={scaleView.diagram.key}
+                  tempoBpm={tempoBpm}
+                  onOpenChord={openChord}
+                />
+              )}
+            </>
+          )}
+
+          {(activeTab === "daily" || activeTab === "browse") && (
+            <PdfPageCanvas file={activeBook.file} page={activePage} />
+          )}
+        </div>
       </main>
     </div>
   );

@@ -5,9 +5,10 @@ import { ScaleChordsPanel } from "../components/ScaleChordsPanel";
 import { ArpeggioPanel } from "../components/ArpeggioPanel";
 import { RiffPanel } from "../components/RiffPanel";
 import { ChordFinderPanel } from "../components/ChordFinderPanel";
-import { useChordFinder } from "../hooks/useChordFinder";
+import { ChordToolbar, ProgressionToolbar, ScaleToolbar } from "../components/PageToolbars";
+import { ScaleChordShape, ScaleView, ScaleViewRow } from "../components/ScaleViewRow";
 import { useChordChart } from "../hooks/useChordChart";
-import { useScaleView } from "../hooks/useScaleView";
+import { useReference } from "../hooks/useReference";
 import { getDateISOInTimeZone } from "../music/daily";
 
 // The standalone app is shared with other people, so unlike the main DayFret
@@ -28,6 +29,15 @@ function dateLabelForHeader(): string {
   });
 }
 
+type View = "progressions" | "riffs" | "chords" | "scales";
+
+// Same layout as the main app, minus the PDF books: things you play, then
+// things you look up.
+const NAV: Array<{ caption: string; tabs: Array<{ id: View; label: string }> }> = [
+  { caption: "Practice", tabs: [{ id: "progressions", label: "Progressions" }, { id: "riffs", label: "Riffs" }] },
+  { caption: "Reference", tabs: [{ id: "chords", label: "Chords" }, { id: "scales", label: "Scales" }] },
+];
+
 export default function ChordsApp(): JSX.Element {
   const dateISO = useMemo(
     () => getDateISOInTimeZone(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -41,26 +51,21 @@ export default function ChordsApp(): JSX.Element {
     return () => { delete document.body.dataset.period; };
   }, [period]);
 
-  const {
-    chart,
-    isDailyChart,
-    heading,
-    keysForChart,
-    progressions,
-    onPickProgression,
-    onPickKey,
-    onSurpriseMe,
-    onNewVoicings,
-    onBackToToday,
-  } = useChordChart(dateISO);
+  const chords = useChordChart(dateISO);
+  const { finder, scaleView } = useReference();
+  const [view, setView] = useState<View>("progressions");
+  const [scaleMode, setScaleMode] = useState<ScaleView>("positions");
+  const [scaleChordShape, setScaleChordShape] = useState<ScaleChordShape>("grips");
 
-  const scaleView = useScaleView();
-  const finder = useChordFinder();
-  const [view, setView] = useState<"chords" | "finder" | "scales" | "riffs">("chords");
-
-  // The swap button flips the Scales view between the fretboard and a chart of
-  // every chord the scale harmonizes to, in the same key.
-  const [scaleMode, setScaleMode] = useState<"fretboard" | "chords" | "arpeggios">("fretboard");
+  const openChord = (rootPc: number, typeId: string, rootName: string): void => {
+    finder.openChord(rootPc, typeId, rootName);
+    setView("chords");
+  };
+  const openScale = (scaleId: string, keyLabel: string): void => {
+    scaleView.selectScale(scaleId, keyLabel);
+    setScaleMode("positions");
+    setView("scales");
+  };
 
   return (
     <div className="app-shell chords-app">
@@ -70,247 +75,82 @@ export default function ChordsApp(): JSX.Element {
         <p className="app-date">{dateLabel}</p>
       </header>
 
-      <div className="tab-bar">
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${view === "chords" ? " active" : ""}`}
-            onClick={() => setView("chords")}
-          >
-            Chord Charts
-          </button>
-          <button
-            type="button"
-            className={`segment${view === "finder" ? " active" : ""}`}
-            onClick={() => setView("finder")}
-          >
-            Chord Finder
-          </button>
-          <button
-            type="button"
-            className={`segment${view === "scales" ? " active" : ""}`}
-            onClick={() => setView("scales")}
-          >
-            Scales
-          </button>
-          <button
-            type="button"
-            className={`segment${view === "riffs" ? " active" : ""}`}
-            onClick={() => setView("riffs")}
-          >
-            Riffs
-          </button>
-        </div>
-      </div>
-
-      {view === "finder" && (
-        <ChordFinderPanel
-          finder={finder}
-          onOpenScale={(scaleId, keyLabel) => {
-            scaleView.selectScale(scaleId, keyLabel);
-            setScaleMode("fretboard");
-            setView("scales");
-          }}
-        />
-      )}
-
-      {view === "riffs" && (
-        <>
-          <section className="card controls-card chords-app-controls">
-            <div className="chords-picker-row">
-              <div className="chords-picker">
-                <label className="field-label" htmlFor="riff-scale-select">
-                  Scale
-                </label>
-                <select
-                  id="riff-scale-select"
-                  className="menu-select"
-                  value={scaleView.diagram.scale.id}
-                  onChange={(event) => scaleView.onPickScale(event.target.value)}
+      <nav className="top-nav" aria-label="Sections">
+        {NAV.map((group) => (
+          <div className="top-nav-group" key={group.caption}>
+            <span className="nav-caption">{group.caption}</span>
+            <div className="segmented">
+              {group.tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`segment${view === t.id ? " active" : ""}`}
+                  onClick={() => setView(t.id)}
                 >
-                  {scaleView.scales.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="chords-picker">
-                <label className="field-label" htmlFor="riff-key-select">
-                  Key
-                </label>
-                <select
-                  id="riff-key-select"
-                  className="menu-select"
-                  value={scaleView.diagram.key.label}
-                  onChange={(event) => scaleView.onPickKey(event.target.value)}
-                >
-                  {scaleView.keys.map((k) => (
-                    <option key={k.label} value={k.label}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  {t.label}
+                </button>
+              ))}
             </div>
-          </section>
-          <RiffPanel
-            scale={scaleView.diagram.scale}
-            chartKey={scaleView.diagram.key}
-            dateISO={dateISO}
-          />
-        </>
-      )}
+          </div>
+        ))}
+      </nav>
 
-      {view === "scales" && (
-        <>
-          <section className="card controls-card chords-app-controls">
-            <div className="chords-picker-row">
-              <div className="chords-picker">
-                <label className="field-label" htmlFor="scale-select">
-                  Scale
-                </label>
-                <select
-                  id="scale-select"
-                  className="menu-select"
-                  value={scaleView.diagram.scale.id}
-                  onChange={(event) => scaleView.onPickScale(event.target.value)}
-                >
-                  {scaleView.scales.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      <div className="page-column">
+        {view === "progressions" && (
+          <>
+            <ProgressionToolbar chords={chords} />
+            <ChordChartPanel chart={chords.chart} heading={chords.heading} onOpenChord={openChord} />
+          </>
+        )}
 
-              <div className="chords-picker">
-                <label className="field-label" htmlFor="scale-key-select">
-                  Key
-                </label>
-                <select
-                  id="scale-key-select"
-                  className="menu-select"
-                  value={scaleView.diagram.key.label}
-                  onChange={(event) => scaleView.onPickKey(event.target.value)}
-                >
-                  {scaleView.keys.map((k) => (
-                    <option key={k.label} value={k.label}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="chords-picker chords-picker-buttons">
-                <div className="segmented">
-                  <button
-                    type="button"
-                    className={`segment${scaleMode === "fretboard" ? " active" : ""}`}
-                    onClick={() => setScaleMode("fretboard")}
-                  >
-                    Scale
-                  </button>
-                  <button
-                    type="button"
-                    className={`segment${scaleMode === "chords" ? " active" : ""}`}
-                    onClick={() => setScaleMode("chords")}
-                  >
-                    Chords
-                  </button>
-                  <button
-                    type="button"
-                    className={`segment${scaleMode === "arpeggios" ? " active" : ""}`}
-                    onClick={() => setScaleMode("arpeggios")}
-                  >
-                    Arpeggios
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {scaleMode === "chords" ? (
-            <ScaleChordsPanel
+        {view === "riffs" && (
+          <>
+            <ScaleToolbar scaleView={scaleView} />
+            <RiffPanel
               scale={scaleView.diagram.scale}
               chartKey={scaleView.diagram.key}
-              onSwap={() => setScaleMode("fretboard")}
+              dateISO={dateISO}
+              onSelectScale={scaleView.selectScale}
             />
-          ) : scaleMode === "arpeggios" ? (
-            <ArpeggioPanel scale={scaleView.diagram.scale} chartKey={scaleView.diagram.key} />
-          ) : (
-            <ScalePanel diagram={scaleView.diagram} onSwap={() => setScaleMode("chords")} />
-          )}
-        </>
-      )}
+          </>
+        )}
 
-      {view === "chords" && (
-      <>
-      <section className="card controls-card chords-app-controls">
-        <div className="chords-picker-row">
-          <div className="chords-picker">
-            <label className="field-label" htmlFor="progression-select">
-              Progression
-            </label>
-            <select
-              id="progression-select"
-              className="menu-select"
-              value={chart.progression.id}
-              onChange={(event) => onPickProgression(event.target.value)}
-            >
-              {progressions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {view === "chords" && (
+          <>
+            <ChordToolbar finder={finder} />
+            <ChordFinderPanel finder={finder} onOpenScale={openScale} />
+          </>
+        )}
 
-          <div className="chords-picker">
-            <label className="field-label" htmlFor="key-select">
-              Key
-            </label>
-            <select
-              id="key-select"
-              className="menu-select"
-              value={chart.key.label}
-              onChange={(event) => onPickKey(event.target.value)}
-              disabled={chart.progression.keyless}
-            >
-              {chart.progression.keyless ? (
-                <option value={chart.key.label}>Open position</option>
-              ) : (
-                keysForChart.map((k) => (
-                  <option key={k.label} value={k.label}>
-                    {k.label} {chart.progression.mode}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <div className="chords-picker chords-picker-buttons">
-            <button type="button" className="primary-button" onClick={onSurpriseMe}>
-              Surprise Me
-            </button>
-            <button type="button" className="segment" onClick={onNewVoicings}>
-              New Voicings
-            </button>
-            <button
-              type="button"
-              className="segment"
-              onClick={onBackToToday}
-              disabled={isDailyChart}
-            >
-              Today
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <ChordChartPanel chart={chart} heading={heading} />
-      </>
-      )}
+        {view === "scales" && (
+          <>
+            <ScaleToolbar scaleView={scaleView}>
+              <ScaleViewRow
+                view={scaleMode}
+                onView={setScaleMode}
+                shape={scaleChordShape}
+                onShape={setScaleChordShape}
+                onRiffs={() => setView("riffs")}
+              />
+            </ScaleToolbar>
+            {scaleMode === "positions" ? (
+              <ScalePanel diagram={scaleView.diagram} />
+            ) : scaleChordShape === "grips" ? (
+              <ScaleChordsPanel
+                scale={scaleView.diagram.scale}
+                chartKey={scaleView.diagram.key}
+                onOpenChord={openChord}
+              />
+            ) : (
+              <ArpeggioPanel
+                scale={scaleView.diagram.scale}
+                chartKey={scaleView.diagram.key}
+                onOpenChord={openChord}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

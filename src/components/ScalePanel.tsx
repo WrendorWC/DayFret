@@ -2,16 +2,17 @@ import { useEffect, useState } from "react";
 import { ScaleDiagram } from "../music/scales";
 import { ascendingPath, chooseRun, noteAt, upAndDown } from "../music/runs";
 import { usePlayback } from "../hooks/usePlayback";
+import { LabelToggle, useLabelMode } from "../hooks/useLabelMode";
 import { FretboardDiagram } from "./FretboardDiagram";
 
 type ScalePanelProps = {
   diagram: ScaleDiagram;
-  onSwap: () => void;
+  onSwap?: () => void;
   tempoBpm?: number;
 };
 
 export function ScalePanel({ diagram, onSwap, tempoBpm = 90 }: ScalePanelProps): JSX.Element {
-  const [labelMode, setLabelMode] = useState<"intervals" | "notes">("intervals");
+  const labelMode = useLabelMode();
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
   const [boxIndex, setBoxIndex] = useState(0);
   const { playing, activeNote, playSequence, stop } = usePlayback(tempoBpm);
@@ -61,23 +62,7 @@ export function ScalePanel({ diagram, onSwap, tempoBpm = 90 }: ScalePanelProps):
       </div>
 
       <div className="label-toggle-row">
-        <span className="label-toggle-caption">String labels:</span>
-        <div className="segmented">
-          <button
-            type="button"
-            className={`segment${labelMode === "intervals" ? " active" : ""}`}
-            onClick={() => setLabelMode("intervals")}
-          >
-            Intervals
-          </button>
-          <button
-            type="button"
-            className={`segment${labelMode === "notes" ? " active" : ""}`}
-            onClick={() => setLabelMode("notes")}
-          >
-            Notes
-          </button>
-        </div>
+        <LabelToggle />
 
         <button
           type="button"
@@ -87,9 +72,11 @@ export function ScalePanel({ diagram, onSwap, tempoBpm = 90 }: ScalePanelProps):
           {playing ? "■ Stop" : "▶ Play scale"}
         </button>
 
-        <button type="button" className="swap-button" onClick={onSwap}>
-          ⇄ Chords in this scale
-        </button>
+        {onSwap && (
+          <button type="button" className="swap-button" onClick={onSwap}>
+            ⇄ Chords in this scale
+          </button>
+        )}
       </div>
 
       <div className="label-toggle-row">

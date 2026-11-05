@@ -1,3 +1,4 @@
+import { finderTypeForQuality } from "../music/chordFinder";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArpeggioSize,
@@ -11,21 +12,25 @@ import { buildScaleDiagram, ScaleDef } from "../music/scales";
 import { chooseRun, noteAt, upAndDown } from "../music/runs";
 import { midiFor } from "../music/tuning";
 import { usePlayback } from "../hooks/usePlayback";
+import { LabelToggle, useLabelMode } from "../hooks/useLabelMode";
 import { ArpeggioNeck } from "./ArpeggioNeck";
 
 type ArpeggioPanelProps = {
   scale: ScaleDef;
   chartKey: ChartKey;
   tempoBpm?: number;
+  // Open a chord on the Chords page
+  onOpenChord?: (rootPc: number, typeId: string, rootName: string) => void;
 };
 
 export function ArpeggioPanel({
   scale,
   chartKey,
   tempoBpm = 90,
+  onOpenChord,
 }: ArpeggioPanelProps): JSX.Element {
   const [size, setSize] = useState<ArpeggioSize>(3);
-  const [labelMode, setLabelMode] = useState<"intervals" | "notes">("intervals");
+  const labelMode = useLabelMode();
   const [degreeIndex, setDegreeIndex] = useState(0);
   const [rootString, setRootString] = useState<6 | 5 | 4 | 3>(6);
   const [finger, setFinger] = useState<1 | 2 | 3 | 4>(1);
@@ -115,15 +120,7 @@ export function ArpeggioPanel({
           </button>
         </div>
 
-        <span className="label-toggle-caption">Labels:</span>
-        <div className="segmented">
-          <button type="button" className={`segment${labelMode === "intervals" ? " active" : ""}`} onClick={() => setLabelMode("intervals")}>
-            Intervals
-          </button>
-          <button type="button" className={`segment${labelMode === "notes" ? " active" : ""}`} onClick={() => setLabelMode("notes")}>
-            Notes
-          </button>
-        </div>
+        <LabelToggle />
       </div>
 
       <div className="label-toggle-row">
@@ -201,6 +198,15 @@ export function ArpeggioPanel({
         >
           {playing ? "■ Stop" : "▶ Play arpeggio"}
         </button>
+        {onOpenChord && (
+          <button
+            type="button"
+            className="open-chord-link"
+            onClick={() => onOpenChord(entry.rootPc, finderTypeForQuality(entry.type.id), entry.rootName)}
+          >
+            {entry.name}: all voicings ›
+          </button>
+        )}
       </div>
 
       <div className="fretboard-wrap">

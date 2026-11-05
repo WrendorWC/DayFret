@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- DayFret: the sun coming up over the neck. Six strings, heavier toward
+       the low E, crossing four frets; the neck runs off both edges. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a74b8"/>
+      <stop offset="1" stop-color="#103a63"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7ad52"/>
+      <stop offset="1" stop-color="#d9552a"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="1024" height="1024" rx="228"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <circle cx="512" cy="530" r="224" fill="url(#sun)"/>
+  <g clip-path="url(#tile)">
+    <rect x="0" y="530" width="1024" height="270" fill="#0c2c4c"/>
+    <g stroke="#5f8fbf" stroke-width="12">
+      <line x1="130" y1="530" x2="130" y2="800"/>
+      <line x1="370" y1="530" x2="370" y2="800"/>
+      <line x1="610" y1="530" x2="610" y2="800"/>
+      <line x1="850" y1="530" x2="850" y2="800"/>
+    </g>
+    <g stroke="#f3f7fb" stroke-linecap="round">
+      <line x1="0" y1="560" x2="1024" y2="560" stroke-width="8"/>
+      <line x1="0" y1="602" x2="1024" y2="602" stroke-width="9"/>
+      <line x1="0" y1="644" x2="1024" y2="644" stroke-width="11"/>
+      <line x1="0" y1="686" x2="1024" y2="686" stroke-width="12"/>
+      <line x1="0" y1="728" x2="1024" y2="728" stroke-width="14"/>
+      <line x1="0" y1="770" x2="1024" y2="770" stroke-width="16"/>
+    </g>
+  </g>
+</svg>

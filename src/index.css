@@ -103,35 +103,146 @@ select {
   text-overflow: ellipsis;
 }
 
-/* ── Tab bar ──────────────────────────────────────────────────────────────── */
+/* ── Navigation ───────────────────────────────────────────────────────────── */
+/* Two groups: Practice (things you play) and Reference (things you look up).
+   Two buttons per row so every label fits the narrow sidebar on one line. */
 
-.tab-bar {
-  margin: 0;
-}
-
-/* Two rows: practice material (Daily Practice, Browse) above a subtle divider,
-   reference tools (Chords, Scales) below. */
-.tab-bar {
+.side-nav {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
-.tab-bar .segmented {
-  display: flex;
+.nav-caption {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #7a96b4;
+  padding-left: 0.2rem;
+}
+
+.nav-caption:not(:first-child) {
+  margin-top: 0.3rem;
+}
+
+.segmented.nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   width: 100%;
+  box-sizing: border-box;
 }
 
-.tab-bar .segment {
-  flex: 1;
+.nav-grid .segment {
   text-align: center;
   font-size: 0.78rem;
-  padding: 0.38rem 0.45rem;
+  padding: 0.38rem 0.3rem;
+  white-space: nowrap;
 }
 
-.tab-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #cfdcea 18%, #cfdcea 82%, transparent);
+/* Standalone app: the same groups, side by side above the page */
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  align-items: center;
 }
+
+.top-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.top-nav-group .nav-caption {
+  margin-top: 0;
+}
+
+/* ── Page column: toolbar card on top, content card below ─────────────────── */
+
+.page-column {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 0.9vw, 0.9rem);
+  min-width: 0;
+}
+
+.page-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: clamp(0.6rem, 1vw, 0.9rem) clamp(0.9rem, 1.6vw, 1.6rem);
+}
+
+.page-toolbar .segment {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.6rem;
+}
+
+/* Captions line up in a column so the rows read as a form */
+.toolbar-caption {
+  min-width: 4.6rem;
+}
+
+.toolbar-views {
+  padding-top: 0.35rem;
+  border-top: 1px solid #e3ebf3;
+}
+
+.page-toolbar .toolbar-select {
+  width: auto;
+  min-width: 12rem;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.page-toolbar .toolbar-select-narrow {
+  min-width: 8rem;
+}
+
+.toolbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toolbar-button {
+  padding: 0.38rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.toolbar-counter {
+  font-size: 1.15rem;
+}
+
+.toolbar-summary {
+  color: #1f3553;
+  font-size: 0.92rem;
+}
+
+.toolbar-summary-book {
+  color: #6b8aaa;
+}
+
+.toolbar-link {
+  margin-left: auto;
+}
+
+/* "All voicings ›" under a chord card: opens it on the Chords page */
+.open-chord-link {
+  border: 0;
+  background: none;
+  color: #1b5c98;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.1rem 0.2rem;
+  cursor: pointer;
+}
+
+.open-chord-link:hover {
+  text-decoration: underline;
+}
+
 
 /* ── Two-column layout: sidebar | PDF ─────────────────────────────────────── */
 /* Column 1: fixed-width sidebar, fluid between 190 px and 260 px.            */
@@ -795,9 +906,20 @@ select {
 
 .sidebar-icon {
   width: 100%;
+  max-width: 220px;
   height: auto;
   display: block;
   border-radius: 22%;  /* matches typical iOS-style icon rounding */
+}
+
+/* Small icon beside the "DayFret" title, shown only in the one-column layout */
+.app-title-icon {
+  display: none;
+  width: 1.3em;
+  height: 1.3em;
+  margin-right: 0.4em;
+  vertical-align: -0.28em;
+  border-radius: 22%;
 }
 
 /* ── Responsive breakpoints ───────────────────────────────────────────────── */
@@ -806,6 +928,16 @@ select {
 @media (max-width: 980px) {
   .pdf-layout {
     grid-template-columns: 1fr;
+  }
+
+  /* The sidebar is now the full page width, so a width:100% icon would fill
+     the screen. Drop it here; the small one beside the title takes over. */
+  .sidebar-icon {
+    display: none;
+  }
+
+  .app-title-icon {
+    display: inline-block;
   }
 }
 
@@ -1155,4 +1287,145 @@ select {
   font-size: 0.85rem;
   padding: 0.35rem 0.7rem;
   border: 1px solid #cfdcea;
+}
+
+/* Two play buttons side by side (Strum, String by string) sit together at
+   the right instead of splitting the free space between them */
+.play-button + .play-button {
+  margin-left: 0;
+}
+
+/* ── Riff favourites ─────────────────────────────────────────────────────── */
+
+.riff-save {
+  border: 1px solid #c23f1d;
+  border-radius: 0.6rem;
+  background: #fff7f3;
+  color: #c23f1d;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.42rem 0.8rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.riff-save.saved {
+  background: #c23f1d;
+  color: #fff;
+}
+
+/* New riff sits beside Save, not pushed away from it */
+.riff-save + .riff-new {
+  margin-left: 0;
+}
+
+.riff-favorites {
+  display: grid;
+  gap: 0.4rem;
+  border-top: 1px solid #e3ebf3;
+  padding-top: 0.8rem;
+}
+
+.riff-favorite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.riff-favorite {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d6e2ee;
+  border-radius: 0.6rem;
+  background: #fff;
+}
+
+.riff-favorite.active {
+  border-color: #1b5c98;
+  background: #eef5fc;
+}
+
+.riff-favorite-open {
+  flex: 1;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.86rem;
+  color: #1f3553;
+  cursor: pointer;
+}
+
+.riff-favorite-date {
+  margin-left: 0.6rem;
+  color: #7a96b4;
+  font-size: 0.78rem;
+}
+
+.riff-favorite-remove {
+  border: 0;
+  background: none;
+  color: #7a96b4;
+  font-size: 1.1rem;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+
+.riff-favorite-remove:hover {
+  color: #c23f1d;
+}
+
+.riff-favorites-by {
+  margin-left: auto;
+}
+
+.riff-favorite-group {
+  border: 1px solid #e3ebf3;
+  border-radius: 0.7rem;
+  padding: 0.35rem 0.6rem 0.5rem;
+  background: #fbfdff;
+}
+
+.riff-favorite-group > summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1b3a5e;
+  font-size: 0.92rem;
+  padding: 0.2rem 0;
+}
+
+.riff-favorite-group[open] > summary {
+  margin-bottom: 0.35rem;
+}
+
+.riff-favorite-count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 0.3rem;
+  padding: 0 0.4em;
+  border-radius: 1em;
+  background: #e3ebf3;
+  color: #4d6b8c;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.riff-favorite-subgroup + .riff-favorite-subgroup {
+  margin-top: 0.5rem;
+}
+
+.riff-favorite-subhead {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5f7fa2;
+  margin: 0 0 0.25rem 0.15rem;
+}
+
+/* Four-bar riffs: one tab line per two bars */
+.tab-lines {
+  display: grid;
+  gap: 0.4rem;
 }
