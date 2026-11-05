@@ -279,6 +279,7 @@ export class RiffSynth {
     seconds: number,
     opts: {
       bendSemis?: number;
+      bendRelease?: boolean;
       vibrato?: boolean;
       legato?: boolean;
       gain?: number;
@@ -302,6 +303,11 @@ export class RiffSynth {
       const target = rate * Math.pow(2, opts.bendSemis / 12);
       src.playbackRate.setValueAtTime(rate, at + dur * 0.06);
       src.playbackRate.linearRampToValueAtTime(target, at + dur * 0.34);
+      if (opts.bendRelease) {
+        // Hold at the top, then let the string back down before the note ends
+        src.playbackRate.setValueAtTime(target, at + dur * 0.6);
+        src.playbackRate.linearRampToValueAtTime(rate, at + dur * 0.9);
+      }
     }
 
     if (opts.vibrato) {
@@ -411,6 +417,7 @@ export class RiffSynth {
           const strum = j * 0.012;
           this.pluck(n.midi, at + strum, ringTicks * secPerTick, {
             bendSemis: e.bendAmount === "full" ? 2 : e.bendAmount === "half" ? 1 : undefined,
+            bendRelease: e.bendRelease,
             vibrato: e.technique === "vibrato",
             legato,
             gain: e.notes.length > 1 ? 0.36 : 0.5,

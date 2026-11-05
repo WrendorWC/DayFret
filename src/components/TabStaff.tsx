@@ -8,7 +8,12 @@ type TabStaffProps = {
 // Layout (SVG units)
 const LEFT = 26;
 const RIGHT_PAD = 18;
-const PX_PER_TICK = 7.2;
+const PX_PER_TICK = 7.2; // the usual spacing; a crowded line gets more
+
+// Width a fret number takes, halo included (see the fret-number rects below)
+const labelWidth = (fret: number): number => (fret > 9 ? 14 : 11);
+// Clear space wanted between two neighbouring fret numbers
+const LABEL_GAP = 3;
 const STRING_GAP = 13;
 const ART_TOP = 44; // room above the staff for bends and slurs
 const STEM_LEN = 22;
@@ -28,16 +33,96 @@ function isDotted(duration: number): boolean {
   return [TICKS_PER_QUARTER * 1.5, TICKS_PER_QUARTER * 0.75].includes(duration);
 }
 
+function spacingFor(events: RiffEvent[]): number {
+  const sounding = events.filter((e) => !e.rest);
+  let pxPerTick = PX_PER_TICK;
+  for (let i = 1; i < sounding.length; i += 1) {
+    const a = sounding[i - 1];
+    const b = sounding[i];
+    const gap = b.start - a.start;
+    if (gap <= 0) continue;
+    const need = labelWidth(a.notes[0].fret) / 2 + labelWidth(b.notes[0].fret) / 2 + LABEL_GAP;
+    pxPerTick = Math.max(pxPerTick, need / gap);
+  }
+  return pxPerTick;
+}
+
+// Two bars to a line. A four-bar riff on one line would have to shrink to fit
+// the page, and its sixteenths and sextuplets would crowd into each other.
+const BARS_PER_LINE = 2;
+
 export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
+  if (riff.bars <= BARS_PER_LINE) return <TabLine riff={riff} playheadTick={playheadTick} endsRiff />;
+  const lineTicks = TICKS_PER_BAR * BARS_PER_LINE;
+  const lines = Math.ceil(riff.bars / BARS_PER_LINE);
+  // One spacing for every line of the riff, so the lines match in scale
+  const spacing = spacingFor(riff.events);
+  return (
+    <div className="tab-lines">
+      {Array.from({ length: lines }, (_, l) => {
+        const from = l * lineTicks;
+        const part: Riff = {
+          ...riff,
+          bars: Math.min(BARS_PER_LINE, riff.bars - l * BARS_PER_LINE),
+          events: riff.events
+            .filter((e) => e.start >= from && e.start < from + lineTicks)
+            .map((e) => ({ ...e, start: e.start - from })),
+        };
+        const head =
+          playheadTick !== null && playheadTick >= from && playheadTick < from + lineTicks ? playheadTick - from : null;
+        return <TabLine key={l} riff={part} playheadTick={head} endsRiff={l === lines - 1} spacing={spacing} />;
+      })}
+    </div>
+  );
+}
+
+// Runs of notes in a tuplet: three or six to a beat where the beat is
+// normally split in two or four. They get a number so they read as tuplets
+// and not as oddly spaced sixteenths.
+function tupletRuns(events: RiffEvent[]): Array<{ from: RiffEvent; to: RiffEvent; count: number }> {
+  const runs: Array<{ from: RiffEvent; to: RiffEvent; count: number }> = [];
+  let run: RiffEvent[] = [];
+  const flush = () => {
+    const total = run.reduce((t, e) => t + e.duration, 0);
+    const tuplet = run.length >= 3 && (total === TICKS_PER_QUARTER / 2 || total === TICKS_PER_QUARTER);
+    if (tuplet) runs.push({ from: run[0], to: run[run.length - 1], count: run.length });
+    run = [];
+  };
+  for (const e of events) {
+    const sextuplet = e.duration === TICKS_PER_QUARTER / 6;
+    const continues =
+      sextuplet &&
+      run.length > 0 &&
+      run[run.length - 1].start + run[run.length - 1].duration === e.start &&
+      Math.floor(e.start / TICKS_PER_QUARTER) === Math.floor(run[0].start / TICKS_PER_QUARTER);
+    if (!continues) flush();
+    if (sextuplet) run.push(e);
+  }
+  flush();
+  return runs;
+}
+
+function TabLine({
+  riff,
+  playheadTick,
+  endsRiff,
+  spacing,
+}: TabStaffProps & { endsRiff: boolean; spacing?: number }): JSX.Element {
   const totalTicks = TICKS_PER_BAR * riff.bars;
-  const width = LEFT + totalTicks * PX_PER_TICK + RIGHT_PAD;
+  // Space the line by its tightest spot: two fret numbers close in time must
+  // still fit side by side. Sextuplets high on the neck — 12 14 15 at two
+  // ticks apart — collided at the usual spacing. The whole line widens and
+  // then scales to the page, so a busy line reads slightly smaller rather
+  // than overprinting.
+  const pxPerTick = spacing ?? spacingFor(riff.events);
+  const width = LEFT + totalTicks * pxPerTick + RIGHT_PAD;
   const staffTop = ART_TOP;
   const staffBottom = staffTop + 5 * STRING_GAP;
-  const height = staffBottom + STEM_LEN + 26;
+  const height = staffBottom + STEM_LEN + 30;
 
   // stringIndex 0 is the low E, drawn on the bottom line
   const lineY = (stringIndex: number): number => staffTop + (5 - stringIndex) * STRING_GAP;
-  const tickX = (tick: number): number => LEFT + tick * PX_PER_TICK;
+  const tickX = (tick: number): number => LEFT + tick * pxPerTick;
   // Everything that belongs to a note — the fret number, its stem, the slur to
   // the next one — is drawn a few pixels right of the tick it falls on, so the
   // playhead has to sit on the same offset or it runs permanently to the left
@@ -98,7 +183,8 @@ export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
       {/* Bar lines */}
       {Array.from({ length: riff.bars + 1 }, (_, b) => {
         const x = tickX(b * TICKS_PER_BAR);
-        const last = b === riff.bars;
+        // Only the riff's real end gets the double bar
+        const last = b === riff.bars && endsRiff;
         return (
           <g key={`bl${b}`}>
             <line x1={x} y1={lineY(5)} x2={x} y2={lineY(0)} stroke="#7e97b3" strokeWidth={last ? 2.2 : 1.2} />
@@ -162,6 +248,19 @@ export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
           />
         )),
       )}
+
+      {/* Tuplet numbers under the beams */}
+      {tupletRuns(riff.events).map((t, i) => (
+        <text
+          key={`tu${i}`}
+          x={(tickX(t.from.start) + tickX(t.to.start)) / 2 + 3}
+          y={staffBottom + STEM_LEN + 11}
+          textAnchor="middle"
+          className="tab-artic"
+        >
+          {t.count}
+        </text>
+      ))}
 
       {/* Rests, drawn rather than typed: the Unicode musical rest characters
           are in a block most system fonts skip, so they came out as tofu. */}
@@ -256,6 +355,22 @@ export function TabStaff({ riff, playheadTick }: TabStaffProps): JSX.Element {
               <text x={x + 14} y={y - 20} textAnchor="middle" className="tab-artic bend">
                 {label}
               </text>
+              {e.bendRelease && (() => {
+                // Coming back down: from the top of the bend to the string,
+                // reaching it by the end of the note
+                const endX = Math.max(x + 24, tickX(e.start + e.duration) - 2);
+                return (
+                  <>
+                    <path
+                      d={`M ${x + 14} ${y - 14} Q ${endX - 4} ${y - 14} ${endX} ${y - 3}`}
+                      fill="none"
+                      stroke="#c23f1d"
+                      strokeWidth={1.4}
+                    />
+                    <path d={`M ${endX - 3.4} ${y - 5} L ${endX} ${y + 1} L ${endX + 3.2} ${y - 5.6} Z`} fill="#c23f1d" />
+                  </>
+                );
+              })()}
             </g>
           );
         }

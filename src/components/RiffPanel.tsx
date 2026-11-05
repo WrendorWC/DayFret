@@ -11,6 +11,8 @@ import {
 } from "../music/riffs";
 import { buildScaleDiagram, ScaleDef } from "../music/scales";
 import { TabStaff } from "./TabStaff";
+import { fromSaved, SavedRiff, useRiffFavorites } from "../hooks/useRiffFavorites";
+import { positionLabel, RiffFavoritesList } from "./RiffFavoritesList";
 
 type RiffPanelProps = {
   scale: ScaleDef;
@@ -23,6 +25,8 @@ type RiffPanelProps = {
   // Audio-clock time of the next metronome beat, or null when it is not
   // running. Used to start the riff exactly on a click.
   getNextBeat?: () => number | null;
+  // Bring up a favourite's scale and key in the page's pickers
+  onSelectScale?: (scaleId: string, keyLabel: string) => void;
 };
 
 const TECHNIQUE_KEY: Array<[string, string]> = [
@@ -30,6 +34,7 @@ const TECHNIQUE_KEY: Array<[string, string]> = [
   ["/", "slide"],
   ["↗ full", "bend a whole step"],
   ["↗ ½", "bend a half step"],
+  ["↗↘", "bend and release"],
   // vibrato is drawn, not typed — see below
 ];
 
@@ -55,9 +60,12 @@ export function RiffPanel({
   tempoBpm,
   onTempoChange,
   getNextBeat,
+  onSelectScale,
 }: RiffPanelProps): JSX.Element {
   const [feelId, setFeelId] = useState(RIFF_FEELS[0].id);
   const [boxNumber, setBoxNumber] = useState(1);
+  // How many positions the riff travels through, starting from boxNumber
+  const [span, setSpan] = useState(1);
   const [variant, setVariant] = useState(0);
   const [complexity, setComplexity] = useState<RiffComplexity>(2);
   const [localBpm, setLocalBpm] = useState(92);
@@ -82,12 +90,38 @@ export function RiffPanel({
   const feel = RIFF_FEELS.find((f) => f.id === feelId) ?? RIFF_FEELS[0];
 
   const level = RIFF_COMPLEXITY.find((c) => c.level === complexity) ?? RIFF_COMPLEXITY[1];
-  const riff = useMemo(
-    () => generateRiff(scale, chartKey, boxNumber, feel, riffSeed(dateISO, variant), 2, complexity),
-    [scale, chartKey, boxNumber, feel, dateISO, variant, complexity],
+  const generated = useMemo(
+    () => generateRiff(scale, chartKey, boxNumber, feel, riffSeed(dateISO, variant), undefined, complexity, span),
+    [scale, chartKey, boxNumber, feel, dateISO, variant, complexity, span],
   );
 
-  const isRiffOfTheDay = variant === 0;
+  // A favourite, when one is open, replaces the generated riff until any
+  // setting is changed
+  const favorites = useRiffFavorites();
+  const [loaded, setLoaded] = useState<SavedRiff | null>(null);
+  const riff = useMemo(() => (loaded ? fromSaved(loaded) : generated), [loaded, generated]);
+  const savedAs = favorites.find(riff);
+
+  // Picking another scale or key in the page toolbar leaves the favourite
+  useEffect(() => {
+    if (loaded && (loaded.scaleId !== scale.id || loaded.keyLabel !== chartKey.label)) setLoaded(null);
+  }, [loaded, scale.id, chartKey.label]);
+
+  const openFavorite = (f: SavedRiff): void => {
+    setFeelId(f.feelId);
+    setComplexity(f.complexity);
+    setBoxNumber(f.boxNumber);
+    setSpan(f.span ?? 1);
+    onSelectScale?.(f.scaleId, f.keyLabel);
+    setLoaded(f);
+  };
+  // Any setting change goes back to generated riffs
+  const leaving = <T,>(set: (v: T) => void) => (v: T) => {
+    setLoaded(null);
+    set(v);
+  };
+
+  const isRiffOfTheDay = variant === 0 && !loaded;
 
   // Stop playback whenever the riff itself changes
   useEffect(() => {
@@ -145,17 +179,18 @@ export function RiffPanel({
   return (
     <section className="card chords-panel">
       <div className="chords-panel-header">
-        <div className="viewer-book">{isRiffOfTheDay ? "Riff of the Day" : "Riff"}</div>
+        <div className="viewer-book">{loaded ? "Favorite riff" : isRiffOfTheDay ? "Riff of the Day" : "Riff"}</div>
         <h2 className="chords-title">
           {feel.name} riff{" "}
           <span className="chords-key">
-            in {chartKey.label} {scale.name} · position {boxNumber} (frets {riff.startFret}–
+            in {chartKey.label} {scale.name} · {positionLabel(riff.boxNumber, riff.span, boxNumbers.length)} (frets {riff.startFret}–
             {riff.endFret})
           </span>
         </h2>
         <p className="chords-description">
           {feel.description} {level.description}{" "}
-          {level.extraFrets === 0
+          {riff.bars > level.bars ? `Stretched to ${riff.bars} bars so it has time to travel. ` : ""}
+          {riff.endFret - riff.startFret <= level.handSpan
             ? "It stays inside one position, so you can play it without moving your hand."
             : `The hand ranges over frets ${riff.startFret}–${riff.endFret}, so expect to shift.`}
         </p>
@@ -169,7 +204,7 @@ export function RiffPanel({
               key={f.id}
               type="button"
               className={`segment${f.id === feelId ? " active" : ""}`}
-              onClick={() => setFeelId(f.id)}
+              onClick={() => leaving(setFeelId)(f.id)}
             >
               {f.name}
             </button>
@@ -185,7 +220,7 @@ export function RiffPanel({
               key={c.level}
               type="button"
               className={`segment${c.level === complexity ? " active" : ""}`}
-              onClick={() => setComplexity(c.level)}
+              onClick={() => leaving(setComplexity)(c.level)}
               title={c.description}
             >
               {c.name}
@@ -202,18 +237,56 @@ export function RiffPanel({
               key={n}
               type="button"
               className={`segment${n === boxNumber ? " active" : ""}`}
-              onClick={() => setBoxNumber(n)}
+              onClick={() => leaving(setBoxNumber)(n)}
             >
               {n}
             </button>
           ))}
         </div>
 
-        <button type="button" className="primary-button riff-new" onClick={() => setVariant((v) => v + 1)}>
+        {/* Travel up the neck: the riff starts in the chosen position and
+            climbs through the next one or two */}
+        <span className="label-toggle-caption">Span:</span>
+        <div className="segmented" title="Play the riff across one, two or three positions, climbing up the neck">
+          {[1, 2, 3].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`segment${n === span ? " active" : ""}`}
+              onClick={() => leaving(setSpan)(n)}
+            >
+              {n === 1 ? "1 position" : `${n} positions`}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className={`riff-save${savedAs ? " saved" : ""}`}
+          onClick={() => (savedAs ? favorites.remove(savedAs.id) : favorites.save(riff))}
+          title={savedAs ? "Remove from favorites" : "Save this riff to your favorites"}
+        >
+          {savedAs ? "★ Saved" : "☆ Save"}
+        </button>
+        <button
+          type="button"
+          className="primary-button riff-new"
+          onClick={() => {
+            setLoaded(null);
+            setVariant((v) => v + 1);
+          }}
+        >
           New riff
         </button>
-        {!isRiffOfTheDay && (
-          <button type="button" className="segment" onClick={() => setVariant(0)}>
+        {(!isRiffOfTheDay || loaded) && (
+          <button
+            type="button"
+            className="segment"
+            onClick={() => {
+              setLoaded(null);
+              setVariant(0);
+            }}
+          >
             Today&apos;s
           </button>
         )}
@@ -296,6 +369,16 @@ export function RiffPanel({
         </span>
         · rust fret numbers are the root
       </div>
+
+      <RiffFavoritesList
+        favorites={favorites.favorites}
+        activeId={loaded?.id ?? null}
+        onOpen={openFavorite}
+        onRemove={(f) => {
+          if (loaded?.id === f.id) setLoaded(null);
+          favorites.remove(f.id);
+        }}
+      />
     </section>
   );
 }
