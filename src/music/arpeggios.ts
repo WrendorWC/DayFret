@@ -300,3 +300,25 @@ export function buildArpeggios(
 
   return entries;
 }
+
+// An arpeggio for any chord, not just one a scale harmonizes: the chord
+// finder uses this so every chord type in its dictionary can be run through
+// the same sixteen root-string × finger positions.
+export function buildChordArpeggio(
+  name: string,
+  rootPc: number,
+  rootName: string,
+  notes: ArpeggioNote[],
+): ArpeggioEntry {
+  const pcs = new Set(notes.map((n) => (OPEN_STRING_PC[n.stringIndex] + n.fret) % 12));
+  const tones = [...pcs].map((pc) => (pc - rootPc + 12) % 12).sort((a, b) => a - b);
+  return {
+    romanBase: "",
+    rootPc,
+    rootName,
+    type: { id: `chord-${name}`, suffix: "", name: `${name} arpeggio`, tones, size: tones.length >= 4 ? 4 : 3 },
+    name,
+    notes,
+    positions: buildPositions(rootPc, pcs),
+  };
+}

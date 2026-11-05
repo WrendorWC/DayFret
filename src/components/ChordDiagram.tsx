@@ -1,7 +1,14 @@
 import { PlacedChord } from "../music/chords";
 
+// Just what the drawing needs, so the chord finder's searched voicings can use
+// it as well as the library shapes.
+export type DiagramChord = Pick<
+  PlacedChord,
+  "name" | "frets" | "baseFret" | "numFrets" | "intervals" | "notes" | "fingers"
+>;
+
 type ChordDiagramProps = {
-  chord: PlacedChord;
+  chord: DiagramChord;
   labelMode: "intervals" | "notes";
 };
 
@@ -72,6 +79,17 @@ export function ChordDiagram({ chord, labelMode }: ChordDiagramProps): JSX.Eleme
         />
       ))}
 
+      {/* Barre arcs: one finger lying across several strings at one fret */}
+      {barres(chord).map((b) => (
+        <path
+          key={`b${b.lo}-${b.fret}`}
+          d={`M ${stringX(b.lo)} ${fretY(b.fret) - 10} Q ${(stringX(b.lo) + stringX(b.hi)) / 2} ${fretY(b.fret) - 19} ${stringX(b.hi)} ${fretY(b.fret) - 10}`}
+          fill="none"
+          stroke="#1b3a5e"
+          strokeWidth={1.3}
+        />
+      ))}
+
       {/* Open / muted markers above the nut, and fretted dots */}
       {frets.map((fret, i) => {
         const x = stringX(i);
@@ -125,4 +143,23 @@ export function ChordDiagram({ chord, labelMode }: ChordDiagramProps): JSX.Eleme
       )}
     </svg>
   );
+}
+
+// A finger number repeated on the same fret across two or more strings is a
+// barre; the arc spans from its lowest string to its highest.
+function barres(chord: DiagramChord): Array<{ lo: number; hi: number; fret: number }> {
+  const byFinger = new Map<string, number[]>();
+  chord.frets.forEach((fret, s) => {
+    const finger = chord.fingers[s];
+    if (fret === null || fret === 0 || finger === null) return;
+    const key = `${finger}:${fret}`;
+    byFinger.set(key, [...(byFinger.get(key) ?? []), s]);
+  });
+  return [...byFinger.entries()]
+    .filter(([, strings]) => strings.length > 1)
+    .map(([key, strings]) => ({
+      lo: Math.min(...strings),
+      hi: Math.max(...strings),
+      fret: Number(key.split(":")[1]),
+    }));
 }

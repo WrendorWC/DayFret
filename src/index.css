@@ -1051,3 +1051,108 @@ select {
     animation: none;
   }
 }
+
+/* ── Chord Finder ────────────────────────────────────────────────────────── */
+
+.finder-row {
+  flex-wrap: wrap;
+  row-gap: 0.4rem;
+}
+
+.finder-wrap {
+  flex-wrap: wrap;
+}
+
+.finder-bass-select {
+  width: auto;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.finder-tones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.finder-tone {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 2.4rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.55rem;
+  background: #ebf2fa;
+  border: 1px solid #cfdeed;
+  line-height: 1.15;
+}
+
+.finder-tone.root {
+  background: #fbeae4;
+  border-color: #efc6b7;
+}
+
+.finder-tone.optional {
+  opacity: 0.55;
+}
+
+.finder-tone-note {
+  font-weight: 800;
+  color: #1b3a5e;
+}
+
+.finder-tone.root .finder-tone-note {
+  color: #c23f1d;
+}
+
+.finder-tone-interval {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #4a6080;
+}
+
+.finder-tone-hint {
+  font-size: 0.78rem;
+  color: #6a7f98;
+  font-style: italic;
+}
+
+/* Grips only, no captions, so they pack tighter than the chart cells */
+.chords-grid.finder-grid {
+  grid-template-columns: repeat(auto-fill, minmax(112px, 140px));
+}
+
+.finder-cell {
+  cursor: pointer;
+  padding: 0.35rem 0.45rem;
+}
+
+.finder-cell:hover {
+  border-color: #9fbbd8;
+}
+
+.finder-cell.selected {
+  border-color: #1b5c98;
+  box-shadow: 0 0 0 2px rgba(27, 92, 152, 0.22);
+  background: #f5f9fd;
+}
+
+.finder-scale-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.finder-scale-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.finder-scale-chip {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #cfdcea;
+}

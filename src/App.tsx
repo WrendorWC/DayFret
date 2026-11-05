@@ -7,6 +7,8 @@ import { ScalePanel } from "./components/ScalePanel";
 import { ScaleChordsPanel } from "./components/ScaleChordsPanel";
 import { ArpeggioPanel } from "./components/ArpeggioPanel";
 import { RiffPanel } from "./components/RiffPanel";
+import { ChordFinderPanel } from "./components/ChordFinderPanel";
+import { useChordFinder } from "./hooks/useChordFinder";
 import { useChordChart } from "./hooks/useChordChart";
 import { useScaleView } from "./hooks/useScaleView";
 import {
@@ -71,7 +73,7 @@ export default function App(): JSX.Element {
   }, [period]);
 
   // ── Tab ────────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"browse" | "daily" | "chords" | "scales" | "riffs">(
+  const [activeTab, setActiveTab] = useState<"browse" | "daily" | "chords" | "finder" | "scales" | "riffs">(
     "daily",
   );
 
@@ -98,6 +100,9 @@ export default function App(): JSX.Element {
 
   // ── Chord Chart state (shared hook, same behavior as the standalone app) ──
   const chords = useChordChart(dateISO);
+
+  // ── Chord Finder state (any chord, any root — the chord dictionary) ──────
+  const finder = useChordFinder();
 
   // ── Scale Explorer state ──────────────────────────────────────────────────
   // The swap button flips the Scales tab between the fretboard and a chart of
@@ -252,6 +257,13 @@ export default function App(): JSX.Element {
                 onClick={() => setActiveTab("chords")}
               >
                 Chords
+              </button>
+              <button
+                type="button"
+                className={`segment${activeTab === "finder" ? " active" : ""}`}
+                onClick={() => setActiveTab("finder")}
+              >
+                Chord Finder
               </button>
               <button
                 type="button"
@@ -599,6 +611,16 @@ export default function App(): JSX.Element {
 
         {activeTab === "chords" ? (
           <ChordChartPanel chart={chords.chart} heading={chords.heading} tempoBpm={tempoBpm} />
+        ) : activeTab === "finder" ? (
+          <ChordFinderPanel
+            finder={finder}
+            tempoBpm={tempoBpm}
+            onOpenScale={(scaleId, keyLabel) => {
+              scaleView.selectScale(scaleId, keyLabel);
+              setScaleMode("fretboard");
+              setActiveTab("scales");
+            }}
+          />
         ) : activeTab === "riffs" ? (
           <RiffPanel
             scale={scaleView.diagram.scale}

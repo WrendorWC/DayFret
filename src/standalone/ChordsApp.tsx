@@ -4,6 +4,8 @@ import { ScalePanel } from "../components/ScalePanel";
 import { ScaleChordsPanel } from "../components/ScaleChordsPanel";
 import { ArpeggioPanel } from "../components/ArpeggioPanel";
 import { RiffPanel } from "../components/RiffPanel";
+import { ChordFinderPanel } from "../components/ChordFinderPanel";
+import { useChordFinder } from "../hooks/useChordFinder";
 import { useChordChart } from "../hooks/useChordChart";
 import { useScaleView } from "../hooks/useScaleView";
 import { getDateISOInTimeZone } from "../music/daily";
@@ -53,7 +55,8 @@ export default function ChordsApp(): JSX.Element {
   } = useChordChart(dateISO);
 
   const scaleView = useScaleView();
-  const [view, setView] = useState<"chords" | "scales" | "riffs">("chords");
+  const finder = useChordFinder();
+  const [view, setView] = useState<"chords" | "finder" | "scales" | "riffs">("chords");
 
   // The swap button flips the Scales view between the fretboard and a chart of
   // every chord the scale harmonizes to, in the same key.
@@ -78,6 +81,13 @@ export default function ChordsApp(): JSX.Element {
           </button>
           <button
             type="button"
+            className={`segment${view === "finder" ? " active" : ""}`}
+            onClick={() => setView("finder")}
+          >
+            Chord Finder
+          </button>
+          <button
+            type="button"
             className={`segment${view === "scales" ? " active" : ""}`}
             onClick={() => setView("scales")}
           >
@@ -92,6 +102,17 @@ export default function ChordsApp(): JSX.Element {
           </button>
         </div>
       </div>
+
+      {view === "finder" && (
+        <ChordFinderPanel
+          finder={finder}
+          onOpenScale={(scaleId, keyLabel) => {
+            scaleView.selectScale(scaleId, keyLabel);
+            setScaleMode("fretboard");
+            setView("scales");
+          }}
+        />
+      )}
 
       {view === "riffs" && (
         <>

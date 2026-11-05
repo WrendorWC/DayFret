@@ -8,6 +8,9 @@ type FretboardDiagramProps = {
   activeNote?: RunNote | null; // the exact string/fret sounding
   shadowed?: Set<string>; // duplicate pitches in the box that are not played
   playBox?: { start: number; end: number }; // the box playback runs through
+  // Notes picked out from the rest ("stringIndex:fret"), e.g. one chord grip
+  // among every chord tone on the neck. Everything else is shaded back.
+  highlight?: Set<string>;
 };
 
 // SVG geometry (viewBox units)
@@ -27,6 +30,7 @@ export function FretboardDiagram({
   activeNote = null,
   shadowed,
   playBox,
+  highlight,
 }: FretboardDiagramProps): JSX.Element {
   const width = NUT_X + FRET_COUNT * CELL + 12;
   const boardBottom = STR_TOP + 5 * ROW;
@@ -160,7 +164,9 @@ export function FretboardDiagram({
         return (
           <g
             key={`n${i}`}
-            opacity={dimmed ? 0.18 : duplicate ? 0.32 : 1}
+            opacity={
+              dimmed ? 0.18 : duplicate ? 0.32 : highlight && !highlight.has(posKey(n.stringIndex, n.fret)) ? 0.28 : 1
+            }
             className={sounding ? "note-sounding" : undefined}
           >
             <circle
